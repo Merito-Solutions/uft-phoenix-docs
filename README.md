@@ -23,7 +23,7 @@
   <img alt="ALM 24.1 | 25.1 | 26.1" src="https://img.shields.io/badge/ALM-24.1%20%7C%2025.1%20%7C%2026.1-2f8483?style=flat-square">
   <img alt="Windows 10 | 11 | Server 2019+" src="https://img.shields.io/badge/Windows-10%20%7C%2011%20%7C%20Server%202019%2B-0d2028?style=flat-square&logo=windows&logoColor=white">
   <img alt="VBScript to Python" src="https://img.shields.io/badge/VBScript%20%E2%86%92%20Python-3776AB?style=flat-square&logo=python&logoColor=ffd343">
-  <a href="https://www.merito.com/resources/downloads/merito-uft-phoenix-vbs-to-python-utility?utm_source=other&utm_medium=referral&utm_campaign=merito-uft-phoenix-vbs-to-python-utility-5100009"><img alt="Free with registration" src="https://img.shields.io/badge/free-with%20registration-f7931e?style=flat-square"></a>
+  <a href="https://www.merito.com/resources/downloads/merito-uft-phoenix-vbs-to-python-utility?utm_source=other&utm_medium=referral&utm_campaign=merito-uft-phoenix-vbs-to-python-utility-5100009"><img alt="Access by request" src="https://img.shields.io/badge/access-by%20request-f7931e?style=flat-square"></a>
   <a href="https://github.com/Merito-Solutions/uft-phoenix-docs/actions/workflows/pages.yml"><img alt="Docs" src="https://img.shields.io/github/actions/workflow/status/Merito-Solutions/uft-phoenix-docs/pages.yml?label=docs&style=flat-square"></a>
 </p>
 
@@ -51,8 +51,8 @@ investment carries forward instead of being rewritten by hand.
   are converted together, and version history is kept on version-controlled
   projects.
 
-Phoenix is **free to use** — [request access](https://www.merito.com/resources/downloads/merito-uft-phoenix-vbs-to-python-utility?utm_source=other&utm_medium=referral&utm_campaign=merito-uft-phoenix-vbs-to-python-utility-5100009) and we will
-send you the installer.
+To request access to UFT Phoenix, use the
+[request access](https://www.merito.com/resources/downloads/merito-uft-phoenix-vbs-to-python-utility?utm_source=other&utm_medium=referral&utm_campaign=merito-uft-phoenix-vbs-to-python-utility-5100009) link.
 
 ## Documentation
 
@@ -96,9 +96,11 @@ and team enablement.
 ## About this repository
 
 This repository publishes the customer documentation for UFT Phoenix
-1.1.2. UFT Phoenix itself is proprietary Merito software and its source
-code is not published here. The documentation is © Merito LLC, all rights
-reserved — see [LICENSE-DOCS.md](LICENSE-DOCS.md).
+1.1.2. UFT Phoenix itself is proprietary software of Merito Solutions,
+Inc., and its source code is not published here. The software is licensed
+under the agreement in [LICENSE](LICENSE), the same one the installer shows.
+The documentation is © Merito Solutions, Inc., all rights reserved — see
+[LICENSE-DOCS.md](LICENSE-DOCS.md).
 
 This repository is generated automatically, so pull requests and issues are
 not monitored. For questions, [contact Merito](https://www.merito.com/book-consultation?utm_source=other&utm_medium=referral&utm_campaign=merito-uft-phoenix-vbs-to-python-utility-5100009).

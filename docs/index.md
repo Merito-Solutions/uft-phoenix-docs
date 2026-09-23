@@ -18,8 +18,7 @@ it reads your existing VBScript GUI tests and rebuilds them as UFT Python
 tests, so years of automation investment carries forward instead of being
 rewritten by hand.
 
-Phoenix is **free to use**. Request access and we will send you the
-installer.
+To request access to UFT Phoenix, use the **Request access** button below.
 
 [Request access](https://www.merito.com/resources/downloads/merito-uft-phoenix-vbs-to-python-utility?utm_source=other&utm_medium=referral&utm_campaign=merito-uft-phoenix-vbs-to-python-utility-5100009){ .md-button .md-button--primary }
 [Talk to Merito](https://www.merito.com/book-consultation?utm_source=other&utm_medium=referral&utm_campaign=merito-uft-phoenix-vbs-to-python-utility-5100009){ .md-button }
