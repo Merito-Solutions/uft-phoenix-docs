@@ -1,0 +1,56 @@
+# Page metadata for the public documentation site.
+#
+# The one place that orders the guides and describes them. sync_to_github.py
+# reads it to build the MkDocs nav, the guide tables on the home page and in
+# the README, and llms.txt; a future Next.js port of docs.merito.com reads the
+# same file, so the guides themselves never carry renderer-specific front
+# matter and stay byte-identical to the copies the installer ships.
+#
+# `file` must be one of the $DocsWhitelist entries in
+# packaging/build_offline_package.ps1 -- the sync refuses a manifest that
+# names a doc the package does not ship, or leaves out one it does. The
+# page's URL is its file name without `.md`, so renaming a guide changes a
+# public URL.
+
+groups:
+  - title: Getting Started
+    pages:
+      - file: install.md
+        title: Installation
+        description: Prerequisites, the Windows installer (interactive and silent) and the environment check.
+      - file: usage.md
+        title: Usage
+        description: Both conversion paths — a local folder of tests or a whole ALM project — end to end.
+      - file: supported_versions.md
+        title: Supported Versions
+        description: Supported Windows, UFT One and ALM versions, and exactly what converts.
+
+  - title: Using the Console
+    pages:
+      - file: gui_field_guide.md
+        title: Console Field Guide
+        description: Every screen, field and button of the Migration Console, in wizard order.
+      - file: playbook.md
+        title: Migration Playbook
+        description: The enterprise engagement sequence, phase by phase, with exit criteria.
+      - file: acceptance_test_plan.md
+        title: Acceptance Test Plan
+        description: A hands-on validation walkthrough with a sign-off matrix.
+
+  - title: Safety & Operations
+    pages:
+      - file: alm_safety.md
+        title: ALM Safety
+        description: The write-safety model, everything a conversion writes to ALM, and how rollback works.
+      - file: remediation.md
+        title: Blocker Remediation
+        description: How to fix each blocker that keeps a test from converting.
+      - file: troubleshooting.md
+        title: Troubleshooting
+        description: Diagnosing environment, conversion and upload problems.
+      - file: advanced_troubleshooting.md
+        title: Advanced Troubleshooting
+        description: Deep diagnostics for support engineers and migration leads.
+      - file: limitations.md
+        title: Known Limitations
+        description: What Phoenix does not do, and the constructs that need a human.

@@ -1,0 +1,116 @@
+# MkDocs Material configuration for the public UFT Phoenix documentation.
+#
+# A template: sync_to_github.py fills the {{...}} values from
+# publish-docs-info.yml and writes the nav from manifest.yml. Keep
+# markdown_extensions to what GitHub also renders (tables, GitHub callouts,
+# GitHub-compatible heading anchors) so the same Markdown reads correctly on
+# GitHub, on this site and in a later Next.js port. attr_list is the one
+# exception, used for the buttons on the home page only; everywhere else it
+# degrades to a plain link.
+
+site_name: UFT Phoenix
+site_description: Convert OpenText UFT One VBScript tests to Python — from a folder of tests or a whole ALM project.
+site_author: Merito
+site_url: https://merito-solutions.github.io/uft-phoenix-docs/
+copyright: "&copy; Merito LLC. All rights reserved. UFT Phoenix 1.1.2."
+
+repo_url: https://github.com/Merito-Solutions/uft-phoenix-docs
+repo_name: "Merito-Solutions/uft-phoenix-docs"
+edit_uri: ""
+
+docs_dir: docs
+
+theme:
+  name: material
+  custom_dir: overrides
+  logo: assets/icon.png
+  favicon: assets/favicon.png
+  font:
+    text: Titillium Web
+    code: JetBrains Mono
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - navigation.indexes
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+
+extra_css:
+  - stylesheets/merito.css
+
+extra:
+  social_card: assets/social-card.png
+  # true only for a --preview publish: noindex pages and a Preview banner.
+  preview: true
+  generator: false
+  social:
+    - icon: fontawesome/solid/globe
+      link: https://www.merito.com
+      name: Merito
+    - icon: fontawesome/brands/github
+      link: https://github.com/Merito-Solutions/uft-phoenix-docs
+      name: UFT Phoenix on GitHub
+
+markdown_extensions:
+  - tables
+  - attr_list
+  - md_in_html
+  - github-callouts
+  - toc:
+      permalink: true
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - pymdownx.highlight:
+      anchor_linenums: false
+  - pymdownx.superfences
+
+plugins:
+  - search
+
+validation:
+  omitted_files: warn
+  absolute_links: warn
+  unrecognized_links: warn
+  anchors: warn
+
+# nav: written by sync_to_github.py from manifest.yml
+
+nav:
+  - Home: index.md
+  - "Getting Started":
+      - "Installation": install.md
+      - "Usage": usage.md
+      - "Supported Versions": supported_versions.md
+  - "Using the Console":
+      - "Console Field Guide": gui_field_guide.md
+      - "Migration Playbook": playbook.md
+      - "Acceptance Test Plan": acceptance_test_plan.md
+  - "Safety & Operations":
+      - "ALM Safety": alm_safety.md
+      - "Blocker Remediation": remediation.md
+      - "Troubleshooting": troubleshooting.md
+      - "Advanced Troubleshooting": advanced_troubleshooting.md
+      - "Known Limitations": limitations.md
+
+hooks:
+  - hooks/manifest_meta.py

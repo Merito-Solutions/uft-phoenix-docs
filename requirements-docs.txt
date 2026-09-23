@@ -1,0 +1,5 @@
+# Pinned so the GitLab pre-flight and the GitHub Pages build render identically.
+mkdocs==1.6.1
+mkdocs-material==9.7.7
+pymdown-extensions==12.0.1
+markdown-callouts==0.4.0
