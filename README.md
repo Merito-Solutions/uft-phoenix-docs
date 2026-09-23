@@ -3,10 +3,6 @@
   Do not edit this repository by hand: every publish replaces its contents.
 -->
 
-> [!WARNING]
-> **Preview — under review.** This is a pre-release preview of the UFT Phoenix
-> documentation, published from an unmerged change. It is not a release and
-> may change or be withdrawn.
 
 
 <p align="center">

@@ -60,7 +60,7 @@ extra_css:
 extra:
   social_card: assets/social-card.png
   # true only for a --preview publish: noindex pages and a Preview banner.
-  preview: true
+  preview: false
   generator: false
   social:
     - icon: fontawesome/solid/globe

@@ -26,6 +26,12 @@ jobs:
           python-version: "3.12"
       - run: pip install -r requirements-docs.txt
       - run: mkdocs build --strict
+      # A --preview publish lives in preview/, served at <site_url>preview/.
+      - name: Build the preview, when one is published
+        run: |
+          if [ -f preview/mkdocs.yml ]; then
+            mkdocs build --strict -f preview/mkdocs.yml -d "$PWD/site/preview"
+          fi
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
