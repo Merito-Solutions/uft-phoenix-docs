@@ -20,7 +20,7 @@ rewritten by hand.
 
 To request access to UFT Phoenix, use the **Request access** button below.
 
-[Request access](https://www.merito.com/resources/downloads/merito-uft-phoenix-vbs-to-python-utility?utm_source=other&utm_medium=referral&utm_campaign=merito-uft-phoenix-vbs-to-python-utility-5100009){ .md-button .md-button--primary }
+[Request access](https://www.merito.com/request-access/uft-phoenix?utm_source=other&utm_medium=referral&utm_campaign=merito-uft-phoenix-vbs-to-python-utility-5100009){ .md-button .md-button--primary }
 [Talk to Merito](https://www.merito.com/book-consultation?utm_source=other&utm_medium=referral&utm_campaign=merito-uft-phoenix-vbs-to-python-utility-5100009){ .md-button }
 
 ---
