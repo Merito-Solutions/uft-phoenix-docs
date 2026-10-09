@@ -1,6 +1,6 @@
 # UFT Phoenix
 
-> Merito UFT Phoenix converts OpenText UFT One VBScript GUI tests to UFT Python tests, from a folder of tests or a whole OpenText Application Quality Management (ALM) project. Documentation for version 1.1.2.
+> Merito UFT Phoenix converts OpenText UFT One VBScript GUI tests to UFT Python tests, from a folder of tests or a whole OpenText Application Quality Management (ALM) project. Documentation for version 1.2.2.
 
 ## Getting Started
 
@@ -18,6 +18,6 @@
 
 - [ALM Safety](https://merito-solutions.github.io/uft-phoenix-docs/alm_safety/): The write-safety model, everything a conversion writes to ALM, and how rollback works.
 - [Blocker Remediation](https://merito-solutions.github.io/uft-phoenix-docs/remediation/): How to fix each blocker that keeps a test from converting.
-- [Troubleshooting](https://merito-solutions.github.io/uft-phoenix-docs/troubleshooting/): Diagnosing environment, conversion and upload problems.
+- [Troubleshooting](https://merito-solutions.github.io/uft-phoenix-docs/troubleshooting/): Diagnosing environment, conversion and upload problems, and collecting diagnostics for Merito support.
 - [Advanced Troubleshooting](https://merito-solutions.github.io/uft-phoenix-docs/advanced_troubleshooting/): Deep diagnostics for support engineers and migration leads.
 - [Known Limitations](https://merito-solutions.github.io/uft-phoenix-docs/limitations/): What Phoenix does not do, and the constructs that need a human.

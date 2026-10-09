@@ -1,7 +1,7 @@
 # Manual Acceptance Test Plan
 
 A hands-on validation walkthrough of UFT Phoenix, ordered so each case builds
-on the previous. Run it on a machine with UFT One 26.1, the ALM client, and an
+on the previous. Run it on a machine with UFT One 26.1 or 26.3, the ALM client, and an
 ALM project you can snapshot/restore, hosted on OpenText Application Quality
 Management (formerly Application Lifecycle Management) 24.1, 25.1 or 26.1 —
 the supported server versions. Each case lists steps and pass criteria.
@@ -40,14 +40,19 @@ Launch: `uft-migrate-gui` (GUI) and `uft-migrate` (CLI).
 ## B. Console basics
 
 **TC-03 — GUI launch and state persistence**
-1. Launch the GUI; on Step 2 choose **Upgrade ALM Project**; on Step 3 fill
+1. Launch the GUI.
+2. PASS: the bottom-left corner of the dark panel on the left reads
+   *Version* and the `ProductVersion` in `<install folder>\VERSION.txt`, with
+   nothing after the number (no *· development copy*), and stays there on
+   every step.
+3. On Step 2 choose **Upgrade ALM Project**; on Step 3 fill
    Output Root, ALM URL, Username and Password; close the GUI; relaunch it
    and choose **Upgrade ALM Project** again on Step 2 (the workflow choice
    is not restored, and the ALM fields stay hidden until it is made).
-2. PASS: all fields restore, including the password.
-3. Open `out\.uft-migrate-gui-cache.json` under the launch directory
+4. PASS: all fields restore, including the password.
+5. Open `out\.uft-migrate-gui-cache.json` under the launch directory
    (`%USERPROFILE%\out\` for the Start Menu shortcut) in a text editor.
-4. PASS: the `alm_password` value starts with `dpapi:` — never plaintext.
+6. PASS: the `alm_password` value starts with `dpapi:` — never plaintext.
 
 **TC-04 — ALM Connect (threaded, friendly failures)**
 1. Step 2: choose **Upgrade ALM Project**. Step 3: enter a deliberately
@@ -184,8 +189,9 @@ by a Deep analysis or by a real conversion.
    pre-conversion snapshot and recorded `rolled-back`, and the remaining
    assets are recorded `not-attempted`. Any asset recorded `rollback-failed`
    is still converted on the server and must be restored with
-   `uft-migrate restore` from the frozen snapshot before the project is
-   used. `restore` puts back each test's own scripts and actions only — the
+   `uft-migrate restore … --wave <wave>` from the copy the conversion wave
+   froze (the asset's `wave` in `alm_aom_results.json`) before the project
+   is used. `restore` puts back each test's own scripts and actions only — the
    resource relations the conversion changed are not reverted, so a restored
    VBScript test stays related to the converted `.pfl` and to
    PhoenixVBRuntime.pfl rather than to its original `.qfl`. Do not leave this
@@ -234,6 +240,37 @@ pilot project will refuse the conversion run. Before continuing:
    flag the TC-09 test, but its blocker would still abort and roll back the
    conversion, so remove or remediate it either way.
 
+**TC-10a — Discovery reads the whole Test Plan, or the run stops**
+Run it after the clean-up, with the GO analysis.
+1. Open `migration_log.txt` in that analysis's run folder.
+2. PASS: it holds an `alm-discovery-walk` line, level `info`, for the
+   analysis's discovery. Its `tests_seen` equals the number of tests in the
+   project's Test Plan, of every type (the MANUAL and API tests the analysis
+   leaves out of scope included); `tests_by_top_folder` lists each top-level
+   Test Plan folder with the number of tests ALM shows under it;
+   `project_check` reads `"status": "ok"`; `error` is empty. There is no
+   `alm-discovery-retried` line.
+3. On the pilot project, delete from the Test Plan in ALM one in-scope test
+   that no other test calls. Do not run the analysis again. Run **Convert
+   Project**.
+4. PASS: the run is refused: *Pre-flight gate FAILED … NO ALM WRITES WERE
+   PERFORMED*, with the deleted test listed as `analyzed-but-not-selected`.
+   `migration_log.txt` holds one `alm-discovery-retried` line, level
+   `warning`, whose `missing` lists that test's id and whose `error` is empty,
+   and an `alm-discovery-walk` line for each of the conversion's two
+   discoveries. The other tests' *Modified* dates in ALM are unchanged.
+5. Put the test back before TC-11: restore the pilot project from its
+   snapshot, or re-create the test and run the analysis again until the
+   verdict is GO.
+6. Optional, with an account that one failed login does not lock: from a
+   Command Prompt, set `UFT_MIGRATE_ALM_PASSWORD` to a wrong password and run
+   `uft-migrate run --alm --upload --confirm-alm-backup --run-id <run id> …`
+   with that run's other inputs.
+7. PASS: the run stops at once, exit code 2, with *ALM discovery failed: ALM
+   login failed …*, and `migration_log.txt` has no new `alm-discovery-retried`
+   line. Where your ALM site records failed logins, it holds one for the
+   account at that time, not two. Set the right password again.
+
 ## E. Conversion and upload
 
 **TC-11 — Real conversion with verification**
@@ -279,16 +316,19 @@ Python payload. This is what makes a long run survive an interruption.
    took is not abandoned, the end-of-run UFT cache purge never runs (purge
    `%LOCALAPPDATA%\Temp\TD_80` by hand before opening a converted test, or
    UFT serves the pre-conversion build), UFT.exe may keep running, and the
-   asset that was mid-upload can be left in either state. Before re-running,
-   check that asset in ALM and, if it is damaged, restore it with
-   `uft-migrate restore` from its snapshot under
-   `out\<run id>\alm_aom_work\alm_rollback\`. On a disposable pilot project:
-   start Convert Project, click **Cancel** once at least one asset has
-   uploaded and confirm (a "Conversion Failed" dialog is expected), then
-   click **Convert Project** again with the same run ID and answer the
-   *Resume Previous Run* dialog either way — the per-asset journal is kept
-   in both cases and is what drives the skipping. PASS: the completed
-   assets are carried forward as in step 2 and the rest convert normally.
+   asset that was mid-upload can be left in either state. Do not open that
+   asset until the conversion has been run again. On a disposable pilot
+   project: start Convert Project, click **Cancel** once at least one asset
+   has uploaded and confirm (a "Conversion Failed" dialog is expected), then
+   click **Convert Project** again with the same run ID and the same
+   selections, and answer the *Resume Previous Run* dialog either way — the
+   conversion continues the interrupted conversion wave in both cases. PASS:
+   if the cancel landed during an upload, `migration_log.txt` shows
+   `alm-crash-reconcile-started` for the asset that was in flight, then
+   `alm-crash-reconcile-untouched` or `alm-crash-reconcile-restored`, before
+   that asset is converted again; the completed assets are carried forward,
+   with a note that an earlier attempt of this conversion wave converted
+   them; the rest convert normally.
 5. If the cancel in step 4 fell after a test that owns a shareable action
    and before a test that calls it, PASS also requires the caller to be
    converted in the resumed run rather than refused with "that callee has no
@@ -488,9 +528,9 @@ Run these two cases against a **version-controlled** ALM project.
    pre-conversion snapshots (status `rolled-back`), the remaining assets are
    recorded `not-attempted`, and the run reports failed. Confirm that no
    asset shows `rollback-failed`; any that does is still converted on the
-   server and must be restored with `uft-migrate restore` from the frozen
-   snapshot before the project is used — and, as TC-09 step 4 notes,
-   `restore` does not revert the resource relations the conversion changed.
+   server and must be restored with `uft-migrate restore … --wave <wave>`
+   before the project is used — and, as TC-09 step 4 notes, `restore` does
+   not revert the resource relations the conversion changed.
 
 **TC-22 — Locked asset is converted and overwritten, holder named in the audit**
 A lock never fails a conversion. This case verifies that contract, so run it
@@ -525,6 +565,190 @@ session holding the lock.
    copy until reopened. This is why conversions run in an agreed window
    with the project empty.
 
+## J. Crash recovery (validation runs only)
+
+> **Run these cases only on a disposable pilot project, and only to validate
+> crash recovery.** TC-24 and TC-25 use a test-only switch that makes the
+> conversion process crash on purpose. It is not a product feature: never set
+> it for a real conversion, and unset it as soon as the validation run ends.
+
+The switch is two environment variables, read by the process that starts the
+conversion. Set them in a Command Prompt, then start the CLI — or the
+Migration Console, from its install folder's `bin\uft-migrate-gui.cmd` — from
+that same prompt, after `cd /d "%USERPROFILE%"` so the console uses its usual
+run folders:
+
+```
+set UFT_MIGRATE_TEST_FORCE_CRASH=<test id>@<step>
+set UFT_MIGRATE_TEST_FORCE_CRASH_CONFIRM=<run id>
+```
+
+`<step>` is `after-intent` (before any ALM work for that test),
+`before-upload` (after the test is built, before its upload starts) or
+`after-first-delete` (just after the upload deleted the test's first server
+file, so the test is half-written). `<run id>` is this conversion's run id —
+in the console, the Analysis Run ID. The crash fires at most once per
+conversion wave, so the relaunch converts the test normally. The switch cannot
+exercise the crash budget, which needs the same test to crash three times; the
+budget and the abort it triggers are covered by the automated test suite only.
+
+**TC-23 — The switch cannot fire by accident**
+1. Set only `UFT_MIGRATE_TEST_FORCE_CRASH=<test id>@after-intent` — no
+   confirmation — and start the conversion (Convert Project, or `uft-migrate
+   run --alm --upload --confirm-alm-backup --run-id <run id> …`).
+2. PASS: the conversion is refused before it starts: the result says the
+   confirmation does not equal this run's id, the exit code is 2, and nothing
+   is written to ALM (the tests' *Modified* dates are unchanged).
+3. Set the confirmation too, and name a test that links a function library
+   of its own (a `.qfl` converted to a `.pfl`), with step `before-upload`.
+4. PASS: refused again, naming the linked library as the reason and offering
+   `after-intent`; nothing is written. A test id outside the analysed scope is
+   refused the same way. A test whose only library is the shared
+   `PhoenixVBRuntime.pfl` is not refused for that reason.
+
+**TC-24 — A crash before any ALM write is recovered, with evidence**
+1. Set the switch to `<test id>@after-intent` for a test, with the
+   confirmation, and run Convert Project.
+2. PASS (while it runs): the status line first says *TEST SWITCH ARMED*,
+   naming the test and the step; then that the conversion process crashed
+   (`0xC0000409`), as the test switch's deliberate crash, while converting
+   that test; then the cleanup; then the relaunch.
+3. PASS (at the end): *Conversion Complete* says one crash was recovered and
+   that it was the test switch's deliberate crash; every asset ends `ok` —
+   those converted before the crash are carried forward (`resumed: true`),
+   and the rest, the crashed test included, show `upload_verified` `ok`; the
+   crashed test's record in `alm_aom_results.json` carries a
+   `[crash recovery]` note saying the crash was forced by the test switch; the
+   executive summary's Next Steps say one crash was relaunched automatically,
+   that it was deliberate, with a reminder to unset the switch, and name the
+   `crash_recovery` folder of the wave.
+4. PASS (evidence, in the run folder): `crash_recovery\<wave>\attempt_01\`
+   holds `crash.json` with `"forced": true`, `stdout.log`, `stderr.log` and a
+   `command.txt` with no password in it; `attempt_02\command.txt` does not
+   list `UFT_MIGRATE_FORCE_CRASH_ARMED` among the variables the supervisor
+   set, because the relaunch is never armed; the last line the crashed process
+   wrote to `crash_breadcrumbs.log` names the step
+   `TEST: forced crash (after-intent)`; where Windows Error Reporting is
+   enabled, `attempt_01\Report.wer` exists and Event Viewer (*Windows Logs >
+   Application*) shows events 1000 and 1001 for that time. No crash dump
+   (`.dmp`) is anywhere in the run folder. The last `[Phoenix crash
+   supervisor]` line of the run's stderr (`run_cli_stderr.log` for the
+   console) reads *TEST SWITCH STILL SET*.
+5. Unset both variables.
+
+**TC-25 — A half-written test is restored before it is converted again**
+Pick a test that links no function library of its own (the shared
+`PhoenixVBRuntime.pfl` is fine), on a project without version control: the
+switch refuses this step otherwise.
+1. Set the switch to `<test id>@after-first-delete`, with the confirmation,
+   and run Convert Project.
+2. PASS: before the relaunch converts anything, `migration_log.txt` shows
+   `alm-crash-reconcile-started` and then `alm-crash-reconcile-restored` for
+   that test — the crash had deleted one of its files, so the server no longer
+   matched the copy the wave froze — and `resume\alm_test_results.ndjson`
+   holds a `restore-started` and a `restore-done` record with reason
+   `reconcile` for it.
+3. PASS: the test is then converted again and ends `ok` with
+   `upload_verified` `ok`; its notes carry a `[crash recovery]` line saying the
+   wave's pre-conversion copy was restored before it was converted again; the
+   run completes with no rollback.
+4. Unset both variables.
+
+**TC-26 — One Phoenix process per run folder**
+1. Start Convert Project. While it runs, start an analysis into the same run
+   folder from a Command Prompt opened in the folder the console runs from
+   (your profile folder for the Start Menu shortcut): `uft-migrate convert
+   --alm --dry-run --run-id <same run id> …`.
+2. PASS: the analysis exits 2 at once, saying another Phoenix process is
+   working in that run folder and that nothing was written; the conversion
+   carries on unaffected. `uft-migrate restore --from-run <same run id> …` is
+   refused the same way while the conversion runs.
+3. While the conversion still runs, open a second Migration Console from the
+   same folder, set the same Analysis Run ID and press **Run Analysis**.
+4. PASS: a *Run Folder In Use* dialog names the running process; the run
+   folder's reports and `*_cli` logs are unchanged, and the conversion
+   carries on unaffected.
+
+**TC-27 — An unfinished wave continues only with the same command line**
+1. Start an upload conversion from a Command Prompt (`uft-migrate run --alm
+   --upload --confirm-alm-backup --run-id <run id> …`) and press Ctrl+C once at
+   least one asset has converted.
+2. PASS: the result says the run was interrupted and that the conversion wave
+   stays open; nothing is rolled back.
+3. Run the same command with one option added, for example
+   `--alm-exclude-test-id <a test id>`.
+4. PASS: refused before anything is written, exit code 2. The message says
+   which options differ from the wave's (`added: --alm-exclude-test-id …`)
+   and gives the complete `uft-migrate restore … --abandon-wave <wave>`
+   command, with `--output-root` written out — or, when the interruption left
+   a test half-written, says the wave is not settled and lists one numbered
+   `restore --wave` command per test, callers first.
+5. Run the original command again, with or without `--resume`.
+6. PASS: it continues the wave — `migration_log.txt` shows
+   `alm-preflight-skipped-wave-resume`, and `alm_preflight.json` holds the
+   gate report the wave started under — the assets converted before the
+   interruption are carried forward, and the run completes.
+7. Optional — a wave that has written no test. On a pilot project that is still
+   VBScript (before step 1, or after restoring it), in a run folder of its own
+   (a new run id, analysed first): start the conversion, press Ctrl+C before
+   the first asset's upload begins — while the run folder's
+   `crash_breadcrumbs.log` holds no `upload:` line — then run the same command
+   with one option added.
+8. PASS: not refused: the interrupted wave is closed — a `[Phoenix crash
+   supervisor]` line and the warning `alm-crash-wave-superseded` in
+   `migration_log.txt` say it wrote no test to ALM and was closed — and the
+   conversion starts a new wave.
+
+## K. Diagnostics
+
+**TC-28 — Collect diagnostics**
+1. Run a conversion of this plan that fails — TC-21 step 3's `vc-blocked`
+   conversion — and, before you answer its *Conversion Failed* dialog, note
+   the run folder's file times.
+2. PASS: the dialog shows the failure and ends with the question *Collect
+   diagnostics for Merito support now? Phoenix saves a zip on this PC and
+   opens its folder. Nothing is sent.* Answer **Yes**. (After a run that did
+   not fail, such as TC-24's recovered crash, press **Collect Diagnostics…**,
+   bottom left in the Migration Console beside **Back**, instead.)
+3. PASS: when the run left crash dumps or failed tests, one question asks
+   whether to save them to a SEPARATE file; answer **No**. With neither, no
+   question appears. **Collect Diagnostics…** reads *Collecting…* while it
+   runs, then *Diagnostics Saved* names
+   `out\_support\UFTPhoenix-diagnostics-<version>-<time>.zip` and its size,
+   says nothing was sent, and the folder opens.
+4. Open the folder beside the zip.
+5. PASS: it holds `README.txt`, `MANIFEST.json`, `TRIAGE.md`, `environment\`,
+   `logs\` and `run\run-1\`. No `alm_aom_work` folder, no `.mts`, `.pts`,
+   `.qfl`, `.pfl`, `.tsr`, `.xls`, `.xlsx` or `.dmp` file is anywhere in it;
+   the ALM project and test names appear as tokens (`project-1`,
+   `test-…`); `TRIAGE.md` names the run's failure. The run folder's file times
+   are unchanged.
+6. Close the Migration Console. Start **Start Menu > Merito > Merito UFT
+   Phoenix Collect Diagnostics** (typing *collect diagnostics* in Start search
+   finds it).
+7. PASS: no Migration Console opens. When step 3 asked its question, the same
+   question appears; answer **No**. A small window reads *Collecting
+   diagnostics for Merito support…*, with nothing to press, and closing it
+   does not stop the collection; it goes by itself. *Diagnostics Saved* then
+   names a second zip in the same `out\_support\` folder, under your profile,
+   says nothing was sent, and the folder opens. The run folder's file times
+   are still unchanged.
+8. From a Command Prompt in the folder the console runs from, run
+   `uft-migrate diagnostics triage "<the zip>" --check-secret` and type the
+   ALM password at the prompt; repeat with the ALM user name and the ALM
+   server's host name. Do the same for the second zip.
+9. PASS: nothing you type is shown; each time the report ends saying the value
+   appears nowhere in the bundle, and the exit code is 0.
+10. Run `uft-migrate diagnostics collect --no-run --list`.
+11. PASS: it prints what it would collect and writes no new bundle under
+    `out\_support\`.
+12. Optional — a conversion you stop. Cancel a conversion as in TC-11a step 4,
+    on a disposable project, and read that step's warnings first: Cancel is a
+    hard stop that rolls nothing back.
+13. PASS: its *Conversion Failed* dialog asks nothing; its last line reads *To
+    send details to Merito support, use Collect Diagnostics (bottom left).
+    Nothing is sent automatically.*
+
 ---
 
 ## Suggested sign-off matrix
@@ -534,9 +758,11 @@ session holding the lock.
 | Environment | TC-01–02 | |
 | Console basics | TC-03–04 | |
 | Analysis | TC-05–06 | |
-| Safety rails | TC-07–10 | |
+| Safety rails | TC-07–10, TC-10a | |
 | Conversion | TC-11, TC-11a, TC-12–13 | |
 | Execution | TC-14 (CLI-only, optional), TC-14a, TC-15 | |
 | Power features | TC-16–19 | |
 | Reporting | TC-20 | |
 | Version control & locks | TC-21–22 | |
+| Crash recovery (validation runs only) | TC-23–27 | |
+| Diagnostics | TC-28 | |

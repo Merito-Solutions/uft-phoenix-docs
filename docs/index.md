@@ -71,6 +71,11 @@ Your test estate is valuable, so Phoenix is built to be careful with it:
   test gets a new version, and the original stays in version history.
 - **Fully offline.** Installation and conversion need no internet access,
   and nothing leaves your network.
+- **Support built in.** Phoenix keeps a diagnostics log all the time, so
+  there is nothing to switch on first, and a recent problem can be collected
+  after it happened. One click, or one Start Menu shortcut, builds a bundle
+  for Merito support with passwords removed and your project and test names
+  replaced. Nothing leaves your PC until you send it.
 
 Read the full [ALM Safety](alm_safety.md) guide for the complete list of what
 a conversion writes, and how to roll it back.
@@ -93,7 +98,7 @@ Phoenix follows a phased engagement, described in the
 
 | Component | Supported |
 | --- | --- |
-| OpenText UFT One | 26.1, with Python test support installed |
+| OpenText UFT One | 26.1 and 26.3, with Python test support installed |
 | OpenText Application Quality Management (ALM) | 24.1, 25.1 and 26.1 |
 | Windows | 10 and 11, Server 2019 and later |
 | Source tests | UFT / QTP 11+ GUI tests written in VBScript |
@@ -128,7 +133,7 @@ They are written for the engineers who run the migration.
 | --- | --- |
 | [ALM Safety](alm_safety.md) | The write-safety model, everything a conversion writes to ALM, and how rollback works. |
 | [Blocker Remediation](remediation.md) | How to fix each blocker that keeps a test from converting. |
-| [Troubleshooting](troubleshooting.md) | Diagnosing environment, conversion and upload problems. |
+| [Troubleshooting](troubleshooting.md) | Diagnosing environment, conversion and upload problems, and collecting diagnostics for Merito support. |
 | [Advanced Troubleshooting](advanced_troubleshooting.md) | Deep diagnostics for support engineers and migration leads. |
 | [Known Limitations](limitations.md) | What Phoenix does not do, and the constructs that need a human. |
 

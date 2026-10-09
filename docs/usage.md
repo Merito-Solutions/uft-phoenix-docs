@@ -41,9 +41,10 @@ with the resume and anti-clobber machinery that implies, unless `--run-id` is
 given. The name is normalised: a domain written in capitals (letters, digits and
 underscores only) is title-cased, and any character other than a letter, digit,
 `-`, `_` or `.` becomes an underscore, so the domain `MY_DOMAIN` and project
-`MY_PROJECT` run in `out\My_Domain-MY_PROJECT`. `doctor` and `restore` sit
-outside this entirely: both are dispatched before the banner and the run-folder
-creation, so neither prints `PROJECT_ROOT:` nor creates a run folder.
+`MY_PROJECT` run in `out\My_Domain-MY_PROJECT`. `doctor`, `restore` and
+`diagnostics` sit outside this entirely: all three are dispatched before the
+banner and the run-folder creation, so none of them prints `PROJECT_ROOT:` or
+creates a run folder.
 
 `summarize` is the exception among those: it consumes an existing run's
 reports and links them with relative paths, so with no `--run-id` it writes the
@@ -73,7 +74,8 @@ open from the new folder, so read the details in the original run folder.
 | `run` | Closed loop in one pass. Filesystem: scan → convert → validate → summarize. With `--alm`: the same whole-project ALM conversion `convert --alm` performs, plus the executive summary (`ready_for_approval`, `alm_status`). This is the command the Migration Console's **Run Conversion** button issues. |
 | `validate` | Post-conversion checks (Python syntax, UFT method-call rules) on a converted tree. |
 | `summarize` | Build the executive summary from existing report JSONs. |
-| `restore` | Restore ALM tests to their original pre-conversion payloads from a prior run's frozen snapshots (`out\<RUN_ID>\alm_aom_work\alm_rollback\test_<id>_source`). `out\<RUN_ID>\alm_aom_work\test_<id>_source` is read only as a legacy fallback — it is the live staging tree, which convert re-downloads on every attempt, so after a second run it holds the *converted* payload. A snapshot that already contains Python (`Script.pts` with no `Script.mts`) is refused rather than restored. Snapshots are frozen by any run that converts a downloaded test for real — real conversions, and also **deep** ALM analysis (`--analysis-depth deep`), which AOM-builds every test. A *standard* analysis and an `--upload --dry-run` gate rehearsal freeze nothing, so those run folders leave nothing for `--from-run` to use. |
+| `diagnostics` | `diagnostics collect` writes a support bundle for Merito support under `out\_support\`: the per-process logs, the environment and an allow-list of the run's files, with secrets removed. Nothing is sent anywhere. `diagnostics triage` reads a bundle, or a run folder, and prints a first-look report. See *Collecting diagnostics* below. |
+| `restore` | Restore ALM tests to their original pre-conversion payloads from a prior run's frozen snapshots (`out\<RUN_ID>\alm_aom_work\alm_rollback\test_<id>_source`). `out\<RUN_ID>\alm_aom_work\test_<id>_source` is read only as a legacy fallback — it is the live staging tree, which convert re-downloads on every attempt, so after a second run it holds the *converted* payload. A snapshot that already contains Python (`Script.pts` with no `Script.mts`) is refused rather than restored, and so is an incomplete one — it must hold one `.usr`, a `Test.tsp` and every local action script that `.usr` names, because a restore deletes the server's scripts first. Snapshots are frozen by any run that converts a downloaded test for real — real conversions, and also **deep** ALM analysis (`--analysis-depth deep`), which AOM-builds every test. A *standard* analysis and an `--upload --dry-run` gate rehearsal freeze nothing, so those run folders leave nothing for `--from-run` to use. `--wave <wave>` restores instead from the copy that conversion wave froze before it changed the test (`alm_rollback\waves\<wave>\test_<id>\payload`) and records the restore in the run's journal; a test a wave may have left half-written is refused without it, and the refusal prints the `--wave` command for each such test, callers first. `--wave` naming a finished wave is refused for a test that a later wave has written since — that copy is older than what ALM holds — and the refusal prints the command for the later wave's copy instead. `--accept-current-state` and `--abandon-wave` make no ALM change and need no ALM arguments — see [troubleshooting.md](troubleshooting.md) § *Native crashes and interrupted ALM conversions*. `restore` is refused while another Phoenix process works in that run folder. |
 
 ## Common options (scan, analyze, convert, run, validate, summarize)
 
@@ -107,15 +109,32 @@ Migration Console has no `--resume` control of its own. When the previous run in
 that folder is still interrupted it offers a Resume Previous Run dialog, and
 passes the flag for you only if you answer Yes.
 
-`--resume` does not control what a whole-project ALM conversion skips. Every
-upload conversion journals each asset to `resume\alm_test_results.ndjson` in the
-run folder. A later conversion in the same run folder skips an asset when the
-journal records it uploaded and verified **and** the server copy is still
-Python; the asset is reported `ok`, flagged `resumed`, and listed under
-**Carried Forward**. No flag turns this on. Because ALM runs default to the
-`<Domain>-<Project>` folder, a repeat conversion of the same project resumes
-unless you pass a new `--run-id` and run the analysis under that id first. ALM
-analysis never resumes and never skips an asset.
+`--resume` does not control a whole-project ALM conversion either. Every upload
+conversion journals each asset to `resume\alm_test_results.ndjson` in the run
+folder, and belongs to a *conversion wave* that lasts until the conversion
+finishes or is rolled back. A launch with the same command line — `--run-id`,
+`--resume`, `--failed-only` and the value of `--password` aside — continues an
+unfinished wave, with or without `--resume`, even after the run's checkpoint
+stopped saying `running`. A launch with a different command line closes an
+unfinished wave that has not written any test and starts a new one; once the
+open wave has written a test, it is refused, naming the options that differ
+and the `restore --abandon-wave` command that closes the wave. A conversion
+that was cancelled, that stopped, or that a crash ended before recovery could
+finish leaves its wave open unless the wave was rolled back; see
+[troubleshooting.md](troubleshooting.md) § *Native crashes and interrupted ALM
+conversions*. A later conversion in the same run
+folder skips an asset when the journal records it uploaded and verified,
+nothing recorded after that touched it again, **and** the server still holds
+its complete Python payload; the asset is reported `ok`, flagged `resumed`, and
+listed under **Carried Forward**. Its record in the reports is the one its
+conversion made — findings, structure check, duration and notes, and, when an
+earlier attempt of the same conversion wave converted it (a crash relaunch, a
+resume), the shared libraries it replaced — kept in `resume\alm_asset_details\`
+beside the journal; a journal an earlier Phoenix wrote has none, and the
+reports say how many assets that leaves out. No flag turns this on. Because ALM runs
+default to the `<Domain>-<Project>` folder, a repeat conversion of the same
+project resumes unless you pass a new `--run-id` and run the analysis under
+that id first. ALM analysis never resumes and never skips an asset.
 
 A carried-forward test still serves as a callee: its journal record holds the
 converted action layout that its callers are retargeted against, so a test that
@@ -131,11 +150,12 @@ whole scope. It applies to analysis (`scan`, `analyze`, and the ALM analysis
 `convert --alm --dry-run`); whole-project ALM conversion is all-or-nothing
 and rejects it.
 
-`doctor` and `restore` do not share these options — each defines its own flag
-set (see the `doctor` examples below and `restore --help`). The only overlap is
-`--output-root`, which both declare separately; everything else above, including
-`--config`, `--report-format`, `--verbose` and `--run-id`, is rejected by
-argparse on those two commands.
+`doctor`, `restore` and `diagnostics` do not share these options — each defines
+its own flag set (see the `doctor` examples below, `restore --help` and
+*Collecting diagnostics* below). The only overlap is `--output-root`, which each
+declares separately; everything else above, including `--config`,
+`--report-format`, `--verbose` and `--run-id`, is rejected by argparse on those
+three commands.
 
 ## Reading the result (verdict vs. exit code)
 
@@ -217,6 +237,18 @@ the ALM pipeline's own status word — `preflight-failed` for exactly this abort
 (the gate refused and **no ALM writes were performed**) — because the
 top-level `status` is the readiness rollup and only ever says `failed`.
 
+A real upload that **stopped and stays open** prints no verdict either: its
+`status` (and `alm_status`) is `wave-stopped`, or `journal-unwritable`, it
+writes no report set, and it exits 2 (see
+[troubleshooting.md](troubleshooting.md) § *Native crashes and interrupted ALM
+conversions*). When the crash supervisor ends an upload itself — after a
+crash it could not recover from, when the conversion process ended without
+recording its result, or when it refuses to start one — it prints its own
+result: `status` `failed`, an `alm_status` such as `process-crashed`,
+`exited-without-result` or `refused`, and a `crash_recovery` block whose
+`operator_message` says what happened and what to do next. An upload exits 0
+only when the conversion recorded a result whose exit code is 0.
+
 Use `--strictness strict` if you also want the exit code to fail on scan
 blockers. `summary.unresolved_edges`, `summary.dependency_cycles` and
 `nothing_assessed` explain a filesystem `no-go` that has no blockers behind it,
@@ -245,6 +277,85 @@ check report unless you pass `--json`. Its `status` values are `ok|warn|fail`
 warnings included. The checks themselves never exit 2; exit 2 from `doctor`
 means argparse rejected the command line, for example an unsupported option
 such as `--config`.
+
+## Collecting diagnostics
+
+When Merito support asks for diagnostics, `diagnostics collect` writes a support
+bundle; the Migration Console's **Collect Diagnostics…** button, and the Yes of
+its *Conversion Failed* dialog, run the same collector, and so does the Start
+Menu shortcut *Merito UFT Phoenix Collect Diagnostics*, as `pythonw.exe -m
+uft_migrate.diagnostics collect --show-result` started in the launching user's
+profile folder. Nothing is sent anywhere: the collector opens no network
+connection, creates no COM object, logs in to nothing and writes nothing into a
+run folder. You send the zip yourself. What a bundle holds, and what it never
+holds, is in [troubleshooting.md](troubleshooting.md) § *Collect diagnostics
+for Merito support*.
+
+Run it as `uft-migrate diagnostics …`, or, when `uft-migrate` itself cannot
+start, as `python -m uft_migrate.diagnostics …` with the same options:
+
+```
+diagnostics collect [--run RUN_ID | --run-dir PATH | --no-run] [--output-root DIR] [--dest DIR]
+                    [--days N] [--include-dumps] [--include-failed-tests] [--include-test ID ...]
+                    [--keep-names] [--max-mb N] [--list | --show-result] [--json]
+diagnostics triage PATH [--json] [--repo DIR] [--compare OLDER_PATH] [--check-secret]
+```
+
+For example:
+
+```
+uft-migrate diagnostics collect
+uft-migrate diagnostics collect --run "Default-Retail_Regression_2026" --days 30
+uft-migrate diagnostics collect --no-run --list
+uft-migrate diagnostics collect --include-test 12 34 --json
+uft-migrate diagnostics triage "C:\support\UFTPhoenix-diagnostics-1.2.0-20261006T101500Z.zip"
+uft-migrate diagnostics triage "C:\out\Default-Retail_Regression_2026" --json
+```
+
+| Option | Meaning |
+| --- | --- |
+| `--run`, `--run-dir`, `--no-run` | The run folder to include: a run id under `--output-root`, or a path. Without either, the run the newest run-bound process log names, else the newest folder under `--output-root` that holds a run; `--no-run` collects logs and the environment only. |
+| `--output-root` | The folder that holds the run folders (default `out` under the current folder), as for `restore`. |
+| `--dest` | Where the bundle is written (default `<output-root>\_support\`, else `%LOCALAPPDATA%\Merito\UFT Phoenix\support\`). |
+| `--days` | Days of process logs and Windows crash evidence to include, 1 to 90 (default 30, every process log Phoenix keeps: the Migration Console and the Start Menu shortcut pass no `--days`, so they reach as far back). Collecting deletes no log, but every Migration Console and command start deletes process logs older than 30 days, so past 30 days only Windows' crash evidence is usually left to reach. |
+| `--include-dumps` | Also save the crash dumps matched to this run's crashes (at most 3) to the separate `…-EXTRAS-SENSITIVE.zip`. A dump can contain the ALM password. |
+| `--include-failed-tests`, `--include-test ID ...` | Also save the scripts of the 5 newest failed tests, or of these ALM test ids (at most 5), to the separate file. |
+| `--keep-names` | Keep ALM host, domain, project, user, test, folder and library names instead of replacing them with tokens. |
+| `--max-mb` | The largest bundle zip, 5 to 200 MB (default 25); the oldest and least useful files are trimmed first, and each trim is listed in `MANIFEST.json`. |
+| `--list` | Print what would be collected, and the extras that exist, and write no bundle (the collector still writes its own process log). |
+| `--show-result` | Show the collect in windows, for a start with no console — what the Start Menu shortcut runs: when crash dumps or failed tests' scripts exist for the run, the Migration Console's question about saving them to the separate file (the kinds you already asked for with `--include-dumps` or `--include-failed-tests` are not asked about); a small progress window while it works; then the console's *Diagnostics Saved*, after which the bundle's folder opens, or *Diagnostics Not Collected* with the reason. The JSON document is printed as without it. Not with `--list`. |
+| `--json` | Print the result as one JSON document. |
+
+With `--json`, `collect` prints one document at column 0, with no `event` key:
+`command` (`diagnostics`), `action` (`collect`), `status` (`ok` or `failed`, or
+`cancelled` when the `--show-result` question was answered **Cancel**),
+`bundle` (the zip), `folder` (the same files, unzipped, for review), `bytes`,
+`files`, `excluded_files`, `dropped_after_scan`, `extras` (the separate file, or
+null), `names_map` (the token map, which stays on this PC), `headline` and
+`error`. It exits **0** when a bundle was written and **2** when the collector
+refused or failed, or nothing was collected because the question was
+cancelled — the error names the rule that stopped it, never a value. The exit
+codes are the same with `--show-result`.
+
+`diagnostics triage` is the reader Merito support uses; it reads a bundle zip, a
+bundle folder, or a run folder of an earlier release, never changes it, and
+prints `TRIAGE.md`, the first look a bundle already carries: build and
+environment risks, the process tree, the verdict and the failure that caused
+it, fault groups, native crashes, discovery, and next steps. `--json` prints the
+report as one document; `--compare OLDER_PATH` lists the faults that went away
+or appeared since an older bundle; `--repo DIR` shows the code at the bundle's
+commit beside each failing frame (it runs `git` in DIR). Triage exits 0 with its
+report; when PATH or `OLDER_PATH` cannot be read it prints one JSON document
+with `"status": "failed"` and the reason in `error`, and exits 2.
+
+`--check-secret` asks for a value without showing it and names every file of a
+bundle zip or bundle folder that holds it, in any letter case and in any of the
+forms the redaction masks (raw, JSON-escaped, URL-encoded, XML-escaped, UTF-8 or
+UTF-16). That is how a security team can check a bundle for a password or a
+server name before it is sent. The value itself is never printed. The answer
+does not change the exit code: read the closing *appears in* / *appears
+nowhere* line, or, with `--json`, `check_secret.found`, the list of files that
+hold the value.
 
 ## Filesystem workflows
 
@@ -315,12 +426,13 @@ The ALM counterpart is `--alm-exclude-test-id` (see "ALM flags on `convert`").
 `--alm-url`, `--username`, `--domain` and `--project` are **required on every
 command that connects to a whole ALM project** — `convert --alm`, `run --alm`
 and `restore`. On `convert` and `run` a missing value stops the command with
-"Missing required ALM configuration values"; `restore` declares all four as
-required arguments, so it rejects the command line itself (exit 2). On those
-commands only the password has an environment-variable source,
-`UFT_MIGRATE_ALM_PASSWORD`, and that is the preferred way to supply it —
-`--password` works but a command line is visible to other processes on the
-machine. The Migration Console collects every connection value field-by-field
+"Missing required ALM configuration values"; `restore` stops with a `failed`
+result naming the missing flags (exit 2) before it connects. Only
+`restore --accept-current-state` and `restore --abandon-wave`, which write
+nothing to ALM, need none of them. On those commands only the password has an
+environment-variable source, `UFT_MIGRATE_ALM_PASSWORD`, and that is the
+preferred way to supply it — `--password` works but a command line is visible
+to other processes on the machine. The Migration Console collects every connection value field-by-field
 and passes the password through the environment variable, never on a command
 line ([gui_field_guide.md](gui_field_guide.md)).
 
@@ -492,18 +604,30 @@ that the test passes. Do one of:
    that happens *before* the asset's upload starts — a UFT build fault, an
    error, or a test the Test Plan walk did not find — is retried up to twice,
    and a dropped ALM session is reconnected first. Any other failure aborts the
-   run. Every asset this run already uploaded is then restored from its frozen
-   pre-conversion snapshot, callers first, and reported `rolled-back` (VBScript
-   again); the assets after it are reported `not-attempted`. `rollback-failed`
-   means the restore did not complete or there was no snapshot: that asset may
-   still be Python on the server, so inspect it in ALM and recover it with
-   `restore` (when a snapshot exists), ALM version history, or your backup.
-   Neither the rollback nor `restore` undoes the resource **relation** changes:
-   a restored VBScript test stays related to the converted `.pfl` and to
-   `PhoenixVBRuntime.pfl` rather than to its original `.qfl`, and the runtime
-   library and its Resources folder stay in the project. Re-point those
-   relations in the ALM client before running a restored test.
-   [alm_safety.md](alm_safety.md) has the full list of what a conversion writes.
+   run. Every asset the conversion wave already wrote — including any an
+   earlier attempt of the same wave converted — is then restored from the copy
+   the wave froze before changing it, callers first, and reported
+   `rolled-back` (VBScript again); the assets after it are reported
+   `not-attempted`. `rollback-failed` means the restore did not complete or
+   there was no copy: that asset may still be Python on the server, so inspect
+   it in ALM and recover it with `restore --wave` (when a copy exists), ALM
+   version history, or your backup. Neither the rollback nor `restore` undoes
+   the resource **relation** changes: a restored VBScript test stays related to
+   the converted `.pfl` and to `PhoenixVBRuntime.pfl` rather than to its
+   original `.qfl`, and the runtime library and its Resources folder stay in
+   the project. Re-point those relations in the ALM client before running a
+   restored test. [alm_safety.md](alm_safety.md) has the full list of what a
+   conversion writes.
+10. **A native crash of the conversion process is recovered, within a
+    budget.** A real upload runs under a crash supervisor. When Windows ends
+    the conversion process, the supervisor records the crash, keeps the
+    evidence under `crash_recovery\<wave>\` in the run folder and starts the
+    conversion again; the new attempt checks any test the crash may have left
+    half-written against the wave's copy, and restores it from that copy if it
+    differs, before it converts anything. The third crash while the same test
+    is in flight, the sixth in the wave, or the second in a row outside any
+    test aborts the wave and rolls it back as item 9 describes. See
+    [advanced_troubleshooting.md](advanced_troubleshooting.md) §9.
 
 ### What conversion carries automatically (ALM mode)
 
@@ -724,13 +848,71 @@ In the run folder, after an ALM analysis or conversion:
 - `migration_log.txt` — JSON-lines event log.
 - `file_manifest.txt` — flat manifest of the analysed scope.
 - `resume\alm_test_results.ndjson` — the per-asset conversion journal that
-  drives Carried Forward.
+  drives Carried Forward and decides which conversion wave a launch continues.
+  `resume\alm_asset_details\` beside it keeps what the reports show for each
+  converted asset, for a later attempt that carries the asset forward.
 - `resume_state.json` — the run checkpoint the Resume Previous Run dialog reads.
+- `resume\alm_wave.json` and `resume\phoenix_run.lock` — a summary of the
+  latest conversion wave, and the lock that keeps a second conversion,
+  analysis or restore out of the run folder while one is running.
 - `alm_aom_work\alm_rollback\` — the frozen pre-conversion snapshots. These are
-  the true originals and what `restore` reads;
+  the true originals and what `restore` reads:
+  `test_<id>_source` is each test's first-sight copy,
+  `waves\<wave>\test_<id>\` the copy each conversion wave froze, which crash
+  recovery, the wave's rollback and `restore --wave` use, and
+  `resources\<wave>\<test id>\` the bytes of each `.pfl` library a wave
+  replaced. Each write's "prior copy" holds the bytes THAT write replaced; the
+  scan report's shared-library section also names, per library, the copy that
+  holds it as it was before the wave first wrote it, when one can be tied to
+  that first write (two libraries of the same file name share a test's first
+  copy, so the folder alone never says which library a copy holds). A new
+  wave deletes the copies of older finished waves except the newest one's that
+  wrote to ALM (a
+  wave that wrote nothing, such as a launch the pre-flight gate refused, does
+  not count). *Wrote nothing* means wrote no test — no test upload, restore
+  or rollback: a wave can still have written shared libraries before its
+  first test upload began, because library writes are not journaled.
   `alm_aom_work\test_<id>_source` holds only the latest download.
+- `crash_recovery\<wave>\` and `crash_breadcrumbs.log` — the crash supervisor's
+  evidence for each attempt, and a line per ALM step of an upload, the last of
+  which names the step a crashed conversion process died in
+  ([advanced_troubleshooting.md](advanced_troubleshooting.md) §9). The
+  supervisor deletes a wave's `crash_recovery\<wave>\` once two later
+  conversion waves in the run folder that wrote to ALM have closed (a wave
+  that wrote nothing, such as a launch the pre-flight gate refused, does not
+  count; *wrote nothing* means wrote no test, as above). A memory dump is
+  never copied into it (a dump may hold the ALM password); `crash.json` names
+  where Windows wrote it.
+- After a crash recovery the report set describes the whole conversion: its
+  total time covers every attempt of the conversion wave, the crashed one
+  included, but not the time between attempts (the timing note says how many
+  there were and how long it left out), assets converted before the crash
+  keep the duration measured then, and a **Crash Recovery Notes** section on
+  `analysis_assets.html` and in `scan_report.md` lists each affected asset's
+  `[crash recovery]` notes.
+- `alm_wave_stop.json` — written, instead of a report set, when a conversion
+  stopped and stays open to resume.
 - `executive_summary.{json,md,html}` — written by `run --alm` (and by
   `summarize`), not by `convert --alm`.
+
+Outside the run folder:
+
+- `%LOCALAPPDATA%\Merito\UFT Phoenix\logs\` — one diagnostics log per Phoenix
+  process (the Migration Console, each CLI, the crash supervisor and its
+  workers; a build, analysis or discovery child only when it has a warning or
+  an error), as JSON lines. They survive what the run folder does not: a
+  re-analysis that clears `migration_log.txt`, the next run's overwrite of
+  `alm_aom_results.json`. An error a message names by id, `E-<time>-<process
+  id>-<number>`, is recorded in full there. The ALM password is masked before
+  a record is written: by its value when it is 6 characters or longer, and
+  wherever it follows a name such as `password` or `--password`. Phoenix
+  deletes logs older than 30 days, and the oldest beyond 200 MB, itself, when
+  the Migration Console or a command starts (never while it collects
+  diagnostics); uninstalling leaves the folder in place.
+- `out\_support\` — the support bundles `diagnostics collect` writes (see
+  *Collecting diagnostics* above), or `%LOCALAPPDATA%\Merito\UFT Phoenix\support\`
+  when there is no `out\` folder, where the Migration Console also keeps the
+  collector's output. Nothing deletes them.
 
 Forensic reading order:
 [advanced_troubleshooting.md](advanced_troubleshooting.md) §5.

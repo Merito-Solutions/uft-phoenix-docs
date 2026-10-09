@@ -26,7 +26,7 @@ installer does not replace it. It detects it and offers to remove it; see
 | Administrator rights | Required. The install is per-machine: Program Files, `HKLM`, the machine PATH and All-Users shortcuts. |
 | Windows 10/11 or Windows Server 2019+ | Phoenix is Windows-native; UFT/ALM COM automation requires Windows. |
 | Python | **None.** The package installs and runs on its own sealed 32-bit Python 3.14.0 runtime. Nothing is downloaded, and no Python already on the machine is used. |
-| OpenText UFT One 26.1 | Required on the conversion machine for **both** conversion paths (filesystem and ALM — both are AOM-canonical) and on every machine that executes converted tests. Install the Python scripting component. |
+| OpenText UFT One 26.1 or 26.3 | Required on the conversion machine for **both** conversion paths (filesystem and ALM — both are AOM-canonical) and on every machine that executes converted tests. Install the Python scripting component, then add the IronPython files neither installer ships — `doctor` names them; see [troubleshooting.md](troubleshooting.md). |
 | ALM Client registration | Required for ALM workflows only — install from your ALM server's Tools page (ALM Client Launcher / ALM Connectivity add-in). The supported servers are OpenText Application Quality Management (formerly Application Lifecycle Management) 24.1, 25.1 and 26.1; older versions are not supported, though backward compatibility may still carry one — see [supported_versions.md](supported_versions.md). Filesystem conversions work without it. |
 | Internet access | **None**, for the install or for a conversion. |
 
@@ -62,7 +62,7 @@ pushes it out.
 
 | Task | Default | Effect |
 | --- | --- | --- |
-| Create a Start Menu shortcut | **Checked** | Adds **Start Menu > Merito**, holding *Merito UFT Phoenix* (the GUI), *Merito UFT Phoenix Documentation* (opens `<install folder>\docs`) and *Uninstall Merito UFT Phoenix*. |
+| Create a Start Menu shortcut | **Checked** | Adds **Start Menu > Merito**, holding *Merito UFT Phoenix* (the GUI), *Merito UFT Phoenix Collect Diagnostics* (saves a support bundle for Merito support on this PC without opening the Migration Console, so it also works after the console was closed or when it will not start; nothing is sent), *Merito UFT Phoenix Documentation* (opens `<install folder>\docs`) and *Uninstall Merito UFT Phoenix*. |
 | Create a desktop shortcut | Unchecked | Adds an All-Users desktop shortcut to the Migration Console. |
 | Add Merito UFT Phoenix to the system PATH | **Checked** | Adds `<install folder>\bin` to the machine PATH, which puts `uft-migrate` and `uft-migrate-gui` on **new** terminals for every user. Terminals already open keep the old PATH. |
 
@@ -76,8 +76,22 @@ install was interactive or silent, in `<install folder>\eula_accepted.txt`.
 `<install folder>\VERSION.txt` identifies the exact build: product version, the
 sealed Python runtime, the commit the build sealed, the build date and a
 SHA-256 for the sealed runtime and for each bundled component wheel. Quote it
-when you contact support. `LICENSE` and `THIRD-PARTY-NOTICES.txt` are installed
-beside it.
+when you contact support, or send a diagnostics bundle, which records it with
+the rest of the environment (*Collect Diagnostics…* in the Migration Console,
+or **Start Menu > Merito > Merito UFT Phoenix Collect Diagnostics**; see
+[troubleshooting.md](troubleshooting.md) § *Collect diagnostics for Merito
+support*). `LICENSE` and `THIRD-PARTY-NOTICES.txt` are installed beside it.
+
+### Which version is installed
+
+Start the Migration Console: the bottom-left corner of the dark panel on the
+left, the one that lists the steps, reads *Version* and the version number on
+every step, and an installed copy shows the number alone (see
+[gui_field_guide.md](gui_field_guide.md) § *The version line*). Without the
+console, `uft-migrate --version` prints the same number, and
+`uft-migrate doctor` names it on its second line with the commit the build
+sealed (see [Verify the environment](#verify-the-environment)).
+`VERSION.txt`, above, records the exact build.
 
 ### Silent install
 
@@ -191,7 +205,10 @@ launched from**. `--output-root` moves converted output, not the run folder.
 - Launch from a folder you can write to. The Start Menu shortcut starts in the
   profile folder of whoever launches it, so its run folders land in that
   user's `%USERPROFILE%\out` — each user of the machine gets their own run
-  folders and their own saved Migration Console settings.
+  folders and their own saved Migration Console settings. The Collect
+  Diagnostics shortcut starts there too, so it finds those runs and writes
+  its bundle to `%USERPROFILE%\out\_support\` (or, when that `out\` does not
+  exist yet, to `%LOCALAPPDATA%\Merito\UFT Phoenix\support\`).
 - **Do not launch from the install folder.** `C:\Program Files (x86)` is not
   writable, so the run fails at once; and upgrading and uninstalling clear
   that folder.
@@ -222,8 +239,9 @@ filesystem tests, and the offline-package row is skipped (`[ -- ]`) because it
 only applies to machines that build packages.
 
 `doctor` confirms that UFT One is registered for COM automation, and reports
-the version it finds in the registry. It does not verify that the version is
-26.1.
+the version it finds in the registry — on UFT One 26.3, for example,
+`2026.3.0 build 298 (UFT One 26.3)`. It does not verify that the version is
+26.1 or 26.3.
 
 Run `doctor` on **every** machine involved in the migration — the machine
 driving conversions *and* every host that will execute converted tests.
@@ -239,14 +257,23 @@ from the product's Apps & Features registry key — on 64-bit Windows,
 because setup is a 32-bit process and writes to the 32-bit registry view. The
 generated uninstaller accepts `/VERYSILENT /SUPPRESSMSGBOXES /NORESTART`.
 
-Uninstalling removes the install folder, the Start Menu and desktop shortcuts,
-the machine PATH entry, the recorded license acceptance and the Apps &
+Uninstalling removes the install folder, the Start Menu shortcuts (*Merito
+UFT Phoenix Collect Diagnostics* among them) and the desktop shortcut, the
+machine PATH entry, the recorded license acceptance and the Apps &
 Features entry. It does **not** remove your run output — `out\` folders live
 under whatever folder each user launched Phoenix from — and it does not touch
 UFT One or the ALM client. The Migration Console keeps its saved settings in
 that same `out\` folder (`.uft-migrate-gui-cache.json`), including any ALM
-password you entered, encrypted with Windows DPAPI for your account. Delete
-those folders yourself when a machine is decommissioned.
+password you entered, encrypted with Windows DPAPI for your account, and the
+support bundles *Collect Diagnostics…* and its shortcut wrote, in
+`out\_support\`. Each user's `%LOCALAPPDATA%\Merito\UFT Phoenix\` folder stays
+too: its `logs\` holds that user's diagnostics logs (the ALM password is
+masked in them, see [alm_safety.md](alm_safety.md) § *Credentials*; Phoenix
+itself deletes logs older than 30 days), and its `support\` the bundles
+written when there was no `out\` folder — with their `…KEEP-PRIVATE-names.json`
+maps of your real ALM names and any `…-EXTRAS-SENSITIVE.zip`, whose crash
+dumps can hold the ALM password — and the collector output the Migration
+Console keeps. Delete those folders yourself when a machine is decommissioned.
 
 ## Optional configuration
 

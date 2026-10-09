@@ -25,9 +25,72 @@ pipeline later. Three things it does not show:
 
 ---
 
+## The navigation row
+
+Along the bottom of every step: **Back**, **Collect Diagnostics…** and
+**Next**.
+
+**Collect Diagnostics…** writes a support bundle for Merito support: the
+console's own log and those of the processes it started, the environment
+(Windows, Python, the UFT One and ALM client versions, Windows' crash reports)
+and the current run's logs and results — with your ALM password and test
+content left out and ALM names replaced by tokens. It works on every step,
+including after a failed analysis and while a conversion is running, which is
+how a hung run is collected. It takes the run folder of the run in progress,
+else the last analysis's, else the one the current Run ID names; it has no
+field of its own.
+
+- If crash dumps or the scripts of failed tests exist for that run, one
+  question asks *Also save N crash dump(s) and the scripts of M failed test(s)
+  to a SEPARATE file?*, naming only the kinds it found. **Yes** saves the logs
+  and that separate file (`…-EXTRAS-SENSITIVE.zip`) with only what the
+  question named, **No** the logs only, **Cancel** nothing. A dump can hold
+  your ALM password and test data, and the scripts are your test code: send
+  that file only if Merito support asks for it. When there is nothing of
+  either kind, there is no question.
+- While it runs, the button reads **Collecting…** and is disabled; the rest of
+  the console stays usable.
+- **Diagnostics Saved** names the zip under `out\_support\` and its size, says
+  that nothing was sent, names the separate file when you made one — or, when
+  you answered **Yes** and it could not be written, says why — and opens the
+  folder. The folder beside the zip holds the same files unzipped, so you
+  can read them before you send the zip. **Diagnostics Not Collected** gives
+  the collector's reason, which names the rule that stopped it, never a value.
+
+Nothing is sent anywhere: you send the zip yourself. What a bundle holds, and
+what it never holds, is in [troubleshooting.md](troubleshooting.md) § *Collect
+diagnostics for Merito support*.
+
+The button is one of three ways in. When a conversion fails, its *Conversion
+Failed* dialog asks whether to collect at once (see *Run Analysis* in Step 5
+below). And **Start Menu > Merito > Merito UFT Phoenix Collect Diagnostics**
+collects without the console at all — after you closed it, or when it will not
+start — with the same question about crash dumps and test scripts, a small
+*Collecting diagnostics for Merito support…* window while it works, and the
+same *Diagnostics Saved*.
+
+---
+
+## The version line
+
+The bottom-left corner of the dark panel on the left, the one that lists the
+steps, names the version of Phoenix you are running: *Version* and the version
+number, the same number `uft-migrate --version` prints. It is the panel's last
+line on every step, Step 1 included, and stays at the bottom at any window
+size. Quote it when you contact Merito support; a diagnostics bundle records
+it for you.
+
+An installed copy shows the number alone. A line that ends *· development
+copy* means this console is not running from an installed package — from a
+copy of the source code, for example — so the number names the last build,
+not necessarily the code that is running. Say so when you quote it.
+
+---
+
 ## Step 1 — Welcome
 
-Orientation screen. It carries exactly one button, **Get Quote**, which opens
+Orientation screen. Apart from the navigation row, it carries exactly one
+button, **Get Quote**, which opens
 merito.com/get-a-quote in your browser. **Book a migration services
 consultation** is not on this screen: it lives in the step header card
 ("Need Merito Professional Services to lead the migration?"), which is hidden
@@ -228,7 +291,12 @@ dropdowns. The login and the domain listing run on a background thread with a
 project run in the foreground, so the console can pause while a slow server
 answers those. Do this before anything else ALM-related — the Domain and
 Project dropdowns stay disabled until connected. Domain + Project is the
-entire ALM scope selection; there is no folder picker.
+entire ALM scope selection; there is no folder picker. When the login, the
+domain's project list or the project check fails, the error dialog (*ALM
+Connection Timed Out*, *ALM Authentication Failed*, *ALM Connection Failed*,
+*ALM Project Discovery Failed*, *ALM Project Access Failed*) ends with the line
+*To send details to Merito support, use Collect Diagnostics (bottom left).
+Nothing is sent automatically.*
 
 **Domain / Project** — pick after Connect. Single-domain accounts
 auto-select. The chosen project is converted whole — every UFT GUI test in
@@ -454,6 +522,8 @@ apply — read the status line under the controls and the **CLI Output** box
 instead. The sidebar's three cards say the same things in words: **Workflow**
 (which migration flow you are on), **Approval State** (the verdict as a
 sentence, "Analysis needs attention…" for a run that failed) and **Context**.
+A card is shown only where it fits whole, so a short window shows fewer of
+them; make the window taller to see the rest.
 
 **Analysis Run ID** — folder name for this analysis under `out/` in the
 directory Phoenix was launched from (the run folder is always there; the
@@ -507,8 +577,17 @@ checkpoint still marked *running* whose command and arguments match), a
 checkpoint or start fresh. That dialog appears whether or not this box is
 ticked, and choosing Resume makes the box moot — nothing is deleted. On the UFT
 FileSystem workflow a resumed run then skips the files already scanned; an ALM
-analysis always re-analyzes every asset, resumed or not. The box also does not
-apply to **Re-analyze Failed Assets**, which always builds on the previous run.
+analysis always re-analyzes every asset, resumed or not. For a *conversion*
+(Step 6) the dialog says No runs without the checkpoint, and that an
+unfinished ALM conversion wave is continued either way: for an ALM conversion
+the answer does not change what is converted. The box also does not apply to
+**Re-analyze Failed Assets**, which always builds on the previous run.
+
+**Run Folder In Use.** If another Phoenix process — a conversion, an analysis
+or a restore, from a second console or a command prompt — is working in the
+run folder, **Run Analysis** and **Convert Project** stop with *Run Folder In
+Use*, which names that process. Nothing in the run folder is touched. Wait for
+it to finish, or stop it, then try again.
 
 **Analysis Depth (ALM only)** — `Standard` screens every test in parallel
 without building it in UFT: a fast go/no-go filter. `Deep` opens and rebuilds
@@ -557,7 +636,45 @@ What happens next depends on the verdict and the workflow:
 
 After a run the console reports *Conversion Complete*, *Conversion Complete -
 Approval On Hold* (the run finished, but the Executive Summary is not ready
-for sign-off) or *Conversion Failed*, which shows the failure detail.
+for sign-off) or *Conversion Failed*, which shows the failure detail and the
+process's exit code. On an ALM conversion that recovered from native crashes
+of the conversion process, both *Conversion Complete* dialogs add how many
+crashes were recovered, and how many of them the crash-recovery test switch
+caused on purpose. When the run gives instructions of its own, *Conversion
+Failed* shows them first and in full: a stopped conversion wave's message,
+with its numbered restore commands, followed by the path of
+`alm_wave_stop.json`; or, when the crash supervisor ends the conversion itself
+— after a crash it could not recover from, when the conversion process ended
+without a result, or when it refuses to start one — the supervisor's
+explanation and next step. When the crash budget ran out and the wave was
+rolled back, the dialog lists the outcome by status instead, with the
+`process-crashed` asset among them.
+
+The run folder is reused by every run with the same Run ID, so it can hold an
+earlier run's reports. The console only shows reports the current run wrote:
+if the conversion process ends without writing any — a crash nothing recovered
+from, for instance — *Conversion Failed* says so (and, when the exit code is a
+Windows exception, where Windows recorded the crash: Event Viewer, events 1000
+and 1001), and the Run Outputs rows for the missing reports stay empty rather
+than pointing at an earlier run's.
+
+*Conversion Failed* ends with a question: *Collect diagnostics for Merito
+support now? Phoenix saves a zip on this PC and opens its folder. Nothing is
+sent.* **Yes** runs **Collect Diagnostics…** (see *The navigation row* above)
+on the run that just failed, its question about crash dumps and test scripts
+included; **No** only closes the dialog, and the button still works later.
+One collect runs at a time: when you pressed **Collect Diagnostics…** during
+the conversion and that collect is still running, **Yes** waits for it. That
+collect's *Diagnostics Saved* (or *Diagnostics Not Collected*) then ends:
+*Next, Phoenix collects the conversion that failed meanwhile: send the zip it
+saves then, which includes the failure.* The failed run is collected straight
+after, and the folder opens once its zip is saved.
+
+A conversion you stopped with **Cancel** is not asked about: its *Conversion
+Failed* ends with the line *To send details to Merito support, use Collect
+Diagnostics (bottom left). Nothing is sent automatically.* instead. So does the
+status line of a failed analysis, and of an analysis or conversion that could
+not start, which have no dialog.
 
 **Re-analyze Failed Assets** — after fixing source scripts, re-scans only
 the assets that failed, under the same Analysis Run ID. Much faster than a
@@ -622,9 +739,11 @@ this run already uploaded are rolled back to VBScript. Once the permission is
 in place, run **Convert Project** again with the same Analysis Run ID (after
 reopening the console, re-run Analysis first). There is no failed-only
 conversion, so every in-scope asset is converted again — with one exception:
-an asset an earlier conversion in that folder uploaded and verified that is
-still Python on the server (one whose rollback failed, say) is skipped and
-counted on the Executive Summary's **Carried Forward** card. A carried-forward
+an asset an earlier, finished conversion in that folder uploaded and verified
+that is still Python on the server is skipped and counted on the Executive
+Summary's **Carried Forward** card. If the rollback failed for any asset, the
+conversion stops instead and names each such asset with its `restore --wave`
+command; restore them first. A carried-forward
 test still serves as a callee: its journal record carries the converted action
 layout its callers need. Only a journal written by an earlier version of
 Phoenix, before that layout was recorded, differs: a test that calls a test
@@ -722,21 +841,39 @@ per asset). On the Upgrade ALM Project workflow the progress bar shows
 per-asset progress read live from the engine; on UFT FileSystem it only shows
 that the run is active, and the outcome appears when the run finishes.
 
-**Cancel** — asks *Stop the running conversion?* first; on Yes it force-kills
-the Phoenix command-line process and its worker processes immediately
-(`taskkill /T /F`). UFT (`UFT.exe`, `QtpAutomationAgent.exe`) runs outside
-that process tree and may keep running; close it, or end those processes,
-before using UFT on that machine — the next conversion or Deep analysis
-closes it automatically. Cancel does not wait for the asset in progress —
-that asset is interrupted mid-conversion. Nothing is rolled back, no checkout
-is abandoned, and the end-of-run cache purge does not happen. Assets
-converted before the cancel stay Python, so an ALM project is left part
-Python and part VBScript.
+An ALM conversion runs under a crash supervisor. If Windows ends the conversion
+process (a native crash), the supervisor records the crash, cleans up and
+starts the conversion again. From then on the progress label and the status
+line under the controls show the supervisor's latest message — that the
+conversion process crashed and on which asset, what was cleaned up, and the
+relaunch, with the count of crashes the wave allows. They also show when an
+unfinished conversion wave that had written no test was closed because the
+selections changed, and when the conversion process could not be placed in
+the supervisor's kill-on-close job, so closing the window may leave it
+running. See
+[advanced_troubleshooting.md](advanced_troubleshooting.md) §9.
 
-Treat a cancelled ALM run as an incident, not a pause: check the project's
-state, and restore the in-flight test from that run's pre-conversion snapshot
-before anyone runs it — see [alm_safety.md](alm_safety.md) for the `restore`
-command. Only then restart.
+**Cancel** — asks *Stop the running conversion?* first; on Yes it stops the
+Phoenix command-line process immediately, and then any of its worker
+processes still running. For an ALM conversion that process is the crash
+supervisor: it goes first, and it takes the conversion process and its
+children down with it, so nothing is relaunched. UFT (`UFT.exe`,
+`QtpAutomationAgent.exe`) runs outside that process tree and may keep running;
+close it, or end those processes, before using UFT on that machine — the next
+conversion or Deep analysis closes it automatically. Cancel does not wait for
+the asset in progress — that asset is interrupted mid-conversion. Nothing is
+rolled back, no checkout is abandoned, and the end-of-run cache purge does not
+happen. Assets converted before the cancel stay Python, so an ALM project is
+left part Python and part VBScript. The *Conversion Failed* dialog that follows
+does not ask to collect diagnostics, since you stopped the run; its last line
+names **Collect Diagnostics…** for when you want them.
+
+Treat a cancelled ALM run as an incident, not a pause: the test that was in
+flight may be half-written. Do not let anyone run it until you have restarted
+the conversion as below — before it converts anything, the restart compares
+that test with the copy the conversion wave froze before changing it, and
+restores it if they differ — or restored it yourself with `restore --wave`
+(see [alm_safety.md](alm_safety.md) for the command).
 
 Restarting afterwards differs by workflow:
 
@@ -751,12 +888,20 @@ Restarting afterwards differs by workflow:
   where `fail` acts as `backup`. **Re-analyze Failed Assets** only refreshes
   the analysis report; it converts nothing.
 - **Upgrade ALM Project.** Run **Convert Project** again with the same
-  Analysis Run ID (after reopening the console, re-run Analysis first). Assets
-  an earlier run uploaded and verified that are still Python on the server are
-  skipped and shown as **Carried Forward**; the asset that was in flight, and
-  everything after it, is converted. A carried-forward test still serves as a
-  callee: its journal record carries the converted action layout its callers
-  need. The one exception is a journal written by an earlier version of
+  Analysis Run ID (after reopening the console, re-run Analysis first) and the
+  same selections, and answer *Resume Previous Run* either way: the conversion
+  continues the interrupted conversion wave. If the asset that was in flight
+  had started uploading, it is first compared with the wave's copy and
+  restored from it if they differ. Assets an earlier run uploaded and verified
+  that are still Python on the server are skipped and shown as **Carried
+  Forward**; the asset that was in flight, and everything after it, is
+  converted. Change a selection first, and a wave that has not written any
+  test — cancelled before its first upload, say — is closed and a new one
+  starts; a wave that has is refused, and *Conversion Failed* names what differs and
+  the command that closes the wave (see [troubleshooting.md](troubleshooting.md)
+  § *Native crashes and interrupted ALM conversions*). A carried-forward test
+  still serves as a callee: its journal record carries the converted action
+  layout its callers need. The one exception is a journal written by an earlier version of
   Phoenix, before that layout was recorded — a test that calls such a
   carried-forward test is refused because the called test has no conversion
   record in this run, and the run stops. If that happens, enter a **new**
@@ -788,12 +933,44 @@ finishes. Both paths produce the **Executive Summary** (HTML / Markdown / JSON
   0 unless this applies: assets an earlier conversion in the same run folder
   had already uploaded and verified, and that are still Python on the server,
   are skipped rather than converted again. When the count is not zero, a Next
-  Steps note explains it. These assets count as converted, not failed, and do
-  not change the verdict. They carry the same exception as the restart above:
+  Steps note explains it, and tells two cases apart: assets an earlier
+  *attempt of this same conversion* converted — before a crash relaunch, or
+  before you resumed it — are this run's own work; assets an earlier *run*
+  converted are not. These assets count as converted, not failed, and do
+  not change the verdict. The reports show what their conversion recorded —
+  findings, structure check, the shared libraries an earlier attempt of the
+  same conversion replaced, and duration. A journal written by Phoenix 1.1.5
+  or earlier recorded none of that: the summary and the scan report then say
+  how many carried-forward assets the figures leave out. They carry the same
+  exception as the restart above:
   if the journal record was written by an earlier version of Phoenix, a test
   that calls a carried-forward test is refused because the called test has no
   conversion record in this run, and the run stops. Enter a new Analysis Run
   ID, run Analysis there, and convert there if it happens.
+
+  When the conversion process crashed natively during the run, a Next Steps
+  note says how many times and what became of the crashes — how many were
+  relaunched automatically, how many needed a manual re-run, and whether any
+  struck after a payload write began — and names the conversion wave and the
+  run folder's `crash_recovery\<wave>\` evidence folder. What crash recovery
+  did around each affected asset is listed under **Crash Recovery Notes** on
+  the assets page (`analysis_assets.html`) and in `scan_report.md`. Phoenix
+  deletes the evidence folder itself once two later conversion waves in the
+  same run folder that wrote to ALM have closed (a wave that wrote nothing,
+  such as a launch the pre-flight gate refused, does not count), so copy it
+  elsewhere if you must keep it. *Wrote nothing* means wrote no test — no
+  test upload, restore or rollback: a wave can still have written shared
+  libraries before its first test upload began, because library writes are
+  not journaled. A memory dump is never copied into the evidence folder,
+  because a dump may hold the ALM password — it stays in the Windows
+  crash-dump folder that the attempt's `crash.json` names, where Windows keeps
+  only its newest dumps. Crashes the crash-recovery test switch caused on
+  purpose are counted separately, with a reminder to unset it. When the crash
+  budget ran out, the note says why the wave was aborted and whether its
+  rollback finished. Like Carried Forward, it does not change the verdict.
+  The report's total time covers every attempt
+  of the conversion, the crashed one included, but not the time between
+  attempts, and says how many there were.
 
 ---
 

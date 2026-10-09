@@ -47,7 +47,7 @@ groups:
         description: How to fix each blocker that keeps a test from converting.
       - file: troubleshooting.md
         title: Troubleshooting
-        description: Diagnosing environment, conversion and upload problems.
+        description: Diagnosing environment, conversion and upload problems, and collecting diagnostics for Merito support.
       - file: advanced_troubleshooting.md
         title: Advanced Troubleshooting
         description: Deep diagnostics for support engineers and migration leads.

@@ -56,6 +56,18 @@ complete inventory of those writes.
    failed an in-scope asset, in which case it publishes no verdict at all; treat
    that absence, like any other missing verdict, as `no-go`.
 
+   Discovery, which decides what the run covers, fails closed as well. It
+   reads the whole Test Plan, and a fault while it lists a folder or reads a
+   test stops the run (*ALM discovery failed: …*) instead of shrinking its
+   scope; it then checks what it found against the project's own list of
+   tests. A discovery that fails, whose process dies without an answer, or
+   that comes back without assets the analysis covered, runs once more, a
+   minute later, in a new process with a new ALM session
+   (`alm-discovery-retried` in `migration_log.txt`). The gate judges the
+   second answer, never a union of the two, so assets still missing are
+   refused with nothing written. Only a refused Login is not retried, so a
+   wrong password costs one failed login, not two.
+
    The CLI-only `--allow-partial-conversion` override converts the eligible
    assets anyway. It knowingly leaves the project half Python and half
    VBScript — which breaks cross-test action chains and poisons later
@@ -173,6 +185,27 @@ complete inventory of those writes.
    > locked asset, and their ALM client may hold a stale copy afterwards.
    > Run conversions in an agreed window with the project empty, exactly as
    > the checkout policy assumes.
+10. **Every test write is announced first, and a native crash is recovered.**
+    Before an upload conversion makes the first write to a test's payload,
+    restores a test, or starts a rollback, it writes a record of that to the
+    run's journal (`resume/alm_test_results.ndjson`) and flushes it to disk.
+    If the record cannot be written — a program that holds the file for a
+    moment is waited out for about 8 seconds first — the write does not happen
+    and the conversion stops (`journal-unwritable`). It also stops
+    (`snapshot-failed`) before changing a test whose pre-conversion copy
+    cannot be made in the run folder, on a full disk for example. So after any
+    interruption the journal says exactly which tests may be half-written. The
+    conversion runs under a crash supervisor: when Windows ends the conversion
+    process (a native crash), the supervisor records the crash, keeps the
+    evidence and starts the conversion again. Before the new attempt converts
+    anything, it compares each test that may be half-written with the copy
+    this conversion wave froze before changing it, and restores it from that
+    copy if they differ. Three crashes on one test, six in the wave, or two in
+    a row outside any test end automatic recovery: the wave is aborted and
+    rolled back (see **Rolling back**). Function-library writes are not part of this:
+    see [limitations.md](limitations.md) § *Crash recovery (ALM upload
+    conversions)*, and [advanced_troubleshooting.md](advanced_troubleshooting.md)
+    §9 for the details.
 
 ## What a conversion writes
 
@@ -193,11 +226,20 @@ missing, because UFT follows those rows to find the script it runs.
   resource of that name is there, one is created. If one is already there,
   **its content is replaced** — locks cleared, any foreign checkout undone,
   new content uploaded and checked in — after the prior copy is downloaded to
-  `out/<RUN_ID>/alm_aom_work/alm_rollback/resources/<test id>/`. That copy is
-  best-effort: if the download fails the run records "EXISTING CONTENT
-  REPLACED — no pre-conversion copy was kept" against that library, and the
-  replaced content is gone. Phoenix refuses to write to a `.qfl`, `.vbs` or
-  any other source asset.
+  `out/<RUN_ID>/alm_aom_work/alm_rollback/resources/<wave>/<test id>/`, a
+  folder of the conversion wave's own. The first copy the wave saves of a
+  library is kept; when a later attempt of the same wave — after a crash, say
+  — replaces bytes that differ from it, those bytes are kept beside it in a
+  `replaced_<UTC time>_…` folder. That first copy is kept by file name: when a
+  test's libraries include two of the same name in different folders, the
+  second one's copy is in a `replaced_…` folder beside the first one's, so go
+  by the path each note names, never by the folder. The note "EXISTING
+  CONTENT REPLACED — prior copy saved to <path>" names the copy of exactly
+  the bytes that write replaced. That copy is best-effort: if the download
+  fails the run records
+  "EXISTING CONTENT REPLACED — no pre-conversion copy was kept" against that
+  library, and the replaced content is gone. Phoenix refuses to write to a `.qfl`,
+  `.vbs` or any other source asset.
 - The VBScript compatibility helpers the converted Python needs live in one
   shared library, `PhoenixVBRuntime.pfl`, inside a Resources child folder
   named `UFT Phoenix` that the first conversion needing it creates. Helper
@@ -268,26 +310,70 @@ one test instance per converted test, and then launches the runs.
 ## Interrupting and resuming
 
 - **Cancel rolls nothing back.** The GUI's **Cancel** buttons stop the
-  Phoenix command-line process and its worker processes. Assets converted
-  before the cancel stay Python, so the project is left part converted until
-  you run the conversion again or restore those assets. None of the failure
-  handling runs either: no rollback, no abandoned checkout, no end-of-run
-  cache clear.
+  Phoenix command-line process and its worker processes; for a conversion
+  that is the crash supervisor first, which takes the conversion process down
+  with it. Assets converted before the cancel stay Python, so the project is
+  left part converted until you run the conversion again or restore those
+  assets. None of the failure handling runs either: no rollback, no abandoned
+  checkout, no end-of-run cache clear.
 - UFT (`UFT.exe`, `QtpAutomationAgent.exe`) runs outside that process tree
   and may keep running after a Cancel. Close it, or end those processes,
   before using UFT on that machine. The next conversion or Deep analysis
   closes it automatically.
-- A conversion records every asset as it goes, to
-  `resume/alm_test_results.ndjson` in the run folder. Any later conversion
-  under the **same run id** skips an asset only when that record shows it was
-  uploaded and verified **and** the server still holds a Python-only payload
-  for it. That happens whether or not you choose to resume — in the GUI,
-  either answer in *Resume Previous Run*; on the CLI, `--resume` is accepted
-  only for a run that was interrupted while still running, with identical
-  arguments, and is refused after a run that failed or completed. Everything
-  else is converted again. A skipped asset is reported `ok` and counted under
-  **Carried Forward** in the report's executive summary, so the report does
-  not claim this run did that work. To force a full reconversion, run the
+- **Every upload conversion is a conversion wave.** A wave is one
+  all-or-nothing conversion of the project, recorded in
+  `resume/alm_test_results.ndjson` in the run folder as it goes. It lasts
+  until the conversion finishes or the wave is rolled back, across every
+  attempt it takes: a relaunch after a native crash, and a launch after a
+  cancel, a stop or a crash recovery could not get past. A launch with the
+  **same inputs** — the same command line apart from `--run-id`, `--resume`,
+  `--failed-only` and the value of `--password`; in the console, the same
+  selections — continues an unfinished wave, whether or not you choose to
+  resume: in the GUI either answer in *Resume Previous Run*, on the CLI with or
+  without `--resume`. A continued wave keeps the scope it started with and does
+  not run the pre-flight gate again; it puts the gate report it started under
+  back in `alm_preflight.json`. Its discovery must find that scope again: when
+  tests the wave started with are missing, discovery runs once more, and if
+  they are still missing the conversion stops (`wave-scope-changed`) before it
+  writes anything. A transient fault while ALM lists the Test Plan can cause
+  that, so run the conversion again first; check the scope, and ALM, only if
+  the same tests are missing again. A discovery that fails outright stops the
+  wave too (`discovery-failed`), with nothing written: run the same command
+  again, which retries discovery and then checks any test a crash left
+  half-written. A launch with **other inputs** closes an open
+  wave that has not written any test yet — one cancelled before its first
+  upload, for example — and starts a new one. Once the open wave has written a
+  test, such a launch is refused, with the options that differ and the command
+  that closes the wave; and no new wave starts while any wave in the run
+  folder may still hold a half-written or half-restored test. A refusal writes
+  nothing.
+  [troubleshooting.md](troubleshooting.md) § *Native crashes and interrupted
+  ALM conversions* covers each refusal, and how to close a wave you do not
+  want to continue.
+- **Before a continued wave converts anything**, it settles what the earlier
+  attempt left. A test whose upload had started is compared with the copy this
+  wave froze before changing it: identical, it is left alone; different, it is
+  restored from that copy and verified (on a version-controlled project a
+  checkout the dead process left is undone first). Either way it is then
+  converted again. A test that a Phoenix 1.1.4 run was converting when it
+  stopped is compared too, with the first copy the run folder kept of it,
+  before a 1.1.5 conversion in the folder converts anything. Later, when the
+  wave reaches a test that changed in ALM after the wave first saw it but
+  before the wave wrote it — after a Cancel, say — it freezes its copy of that
+  test again from what ALM holds and notes this on the test. If a test cannot
+  be checked or restored, or anything else is not safe to guess, the
+  conversion **stops**: it writes nothing more, leaves the report set alone,
+  writes `alm_wave_stop.json` with the reason and the next steps, exits 2, and
+  the wave stays open until you have taken them.
+- **What is skipped.** Any later conversion under the **same run id** skips
+  an asset only when the journal shows it was uploaded and verified, nothing
+  recorded after that touched it again, **and** the server still holds its
+  complete Python payload. That happens whether or not you choose to resume.
+  On the CLI, `--resume` with identical arguments is accepted while the run is
+  still marked running or its wave is unfinished, and refused (exit 2)
+  otherwise. Everything else is converted again. A skipped asset is reported
+  `ok` and counted under **Carried Forward** in the report's executive
+  summary, so the report does not claim this run did that work. To force a full reconversion, run the
   analysis again under a new run id and convert in that same run folder — a
   conversion started in a run folder that holds no analysis is refused
   outright (item 4).
@@ -304,19 +390,19 @@ one test instance per converted test, and then launches the runs.
   analysis again under a **new run id** and convert in that run folder, so
   caller and callee convert together, and keep the old run folder for its
   `alm_rollback` snapshots.
-- If a cancel landed mid-upload, the test that was in flight has a record
-  that it started and none that it finished, and its action scripts may
-  already have been deleted before the new payload was saved. On a
-  version-controlled project the next run undoes that checkout and converts
-  the last checked-in version. On a project without version control, restore
-  that test first and only then run the conversion again under the same run
-  id: a re-run takes whatever the server now holds as its source, which is
-  the damaged copy.
-- If the ALM session drops during a conversion, Phoenix reconnects in two
+- If a cancel or a crash landed mid-upload, the test that was in flight has an
+  `upload-started` record and none that it finished, and its action scripts
+  may already have been deleted before the new payload was saved. Do not run
+  that test until the conversion has been run again with the same inputs —
+  which compares it with the wave's copy and restores it if needed, as above —
+  or until you have restored it yourself with `uft-migrate restore … --wave`
+  (see **Rolling back**).
+- If the ALM session drops during a conversion, Phoenix reconnects in three
   places only — before retrying an asset that failed before its upload
-  started (at most two retries), and before an automatic rollback. A drop
-  *during* an upload is not retried: that asset fails, the run stops, and
-  uploaded assets are rolled back. Analysis does not reconnect; re-run it.
+  started (at most two retries), before an automatic rollback, and before
+  crash recovery looks up a test that may be half-written. A drop *during* an
+  upload is not retried: that asset fails, the run stops, and uploaded assets
+  are rolled back. Analysis does not reconnect; re-run it.
   In `migration_log.txt`, `alm-session-reconnect` marks a dropped session
   Phoenix tried to restore and `alm-session-reconnect-failed` one it could
   not; a reconnect entry with no failure entry after it succeeded. After a
@@ -324,24 +410,37 @@ one test instance per converted test, and then launches the runs.
 
 ## Rolling back
 
-Every conversion run keeps a per-test pre-conversion snapshot, and on
+Every conversion run keeps a per-test pre-conversion snapshot — and each
+conversion wave its own copy of every test it changes — and on
 version-controlled projects every conversion checks in a **new** version,
 leaving the old one in place.
 
 **Automatic rollback.** A real conversion stops at the first asset whose
 status is anything other than `ok`, `skipped-api-test` or
 `out-of-scope-test-type` — which includes `blocked`, `vc-blocked`,
-`aom-build-failed`, `upload-verify-failed`, `asset-repair-failed` and
-`not-found`. Assets after it are recorded `not-attempted`. Every asset this
-run had started uploading is then restored from its frozen snapshot, callers
-before callees, and on a version-controlled project each restore is checked
-in as a new version. Those assets end up reported `rolled-back`, or
-`rollback-failed` where the restore could not be verified. Open every
+`aom-build-failed`, `upload-verify-failed`, `asset-repair-failed`,
+`not-found`, and `process-crashed` when the crash budget runs out. Assets
+after it are recorded `not-attempted`. Everything the conversion wave wrote is
+then restored, callers before callees: every asset it started uploading, in
+this attempt or an earlier one, including assets an earlier attempt converted
+that this one carried forward. Each is restored from the copy the wave froze
+before changing it, never from an older copy, and on a version-controlled
+project each restore is checked in as a new version. Every restore is verified
+like an upload — downloaded again and compared byte for byte with the copy it
+put back — with two exceptions: lock files (`*.lck`, such as
+`Default.xls.lck`), which come and go from one download of a test to the next,
+are left out, and `Download.xml` may come back with other content, though a
+restore that does not put it back fails when the frozen copy has one. Those assets end up
+reported `rolled-back` (the asset whose crashes ran the budget out keeps
+`process-crashed`), or `rollback-failed` where the restore could not be
+verified or the wave's copy is missing or damaged. Open every
 `rollback-failed` asset in ALM; the `alm-rollback-asset` events in
-`migration_log.txt` name them. The automatic rollback covers only what *this*
-run uploaded: assets carried forward from an earlier run, and anything left
-behind by a Cancel, stay converted. It has the same limits as `restore`
-below.
+`migration_log.txt` name them. While any of them is not restored, the wave
+stays open, and the next conversion in that run folder stops and names each
+one with its `restore --wave` command. The automatic rollback covers only the
+wave's own writes: assets carried forward from an earlier, finished wave or
+from Phoenix 1.1.4 or earlier stay converted, and a Cancel itself rolls
+nothing back. It has the same limits as `restore` below.
 
 Rollback paths, in order of preference:
 
@@ -361,9 +460,12 @@ Rollback paths, in order of preference:
    `out` in the folder Phoenix was launched from; the Output Root set for a
    conversion never moves a run folder. Run `restore` from that same folder
    and the default, `out`, is right; from anywhere else, pass the full path
-   of that `out` folder. The restorable tests are the `test_<id>_source`
+   of that `out` folder. Every `restore` command Phoenix prints already
+   carries that full path. The restorable tests are the `test_<id>_source`
    folders under `<output-root>/<RUN_ID>/alm_aom_work/alm_rollback/`.
-   Assets already reported `rolled-back` need nothing.
+   Assets already reported `rolled-back` need nothing. `restore` is refused
+   while another Phoenix process — a conversion, an analysis or another
+   restore — is working in that run folder.
 
    The snapshot is the pre-upload download of a test, frozen once per run
    folder by the first run that builds that test — a real conversion **or a
@@ -378,25 +480,70 @@ Rollback paths, in order of preference:
    run folder replaces the original VBScript with the converted payload); it
    is accepted only as a legacy fallback, and `restore` refuses any candidate
    holding `Script.pts` with no `Script.mts`, because that is conversion
-   output rather than the pre-conversion original.
+   output rather than the pre-conversion original. It also refuses an
+   incomplete copy — one without exactly one `.usr`, a `Test.tsp` and every
+   local action script that `.usr` names — because a restore deletes the
+   server's scripts before it saves the copy.
+
+   **A test a conversion wave may have left half-written** — one whose write
+   or restore the wave did not finish, or, in a wave that was aborted, any test
+   it wrote that the rollback has not put back — is restored only from that
+   wave's own copy: add `--wave <wave>`. The wave id is in the stop
+   message, in `alm_wave_stop.json` and in each asset's `wave` in
+   `alm_aom_results.json`; the commands Phoenix prints carry it already.
+   Without `--wave`, `restore` refuses such a test, because the first-sight
+   copy can be older than the wave and restoring it would undo changes made
+   since; the refusal prints the `--wave` command for each such test, callers
+   first. For the same reason `--wave` refuses a wave that has finished when a
+   later wave has written the test since, and prints the command for the later
+   wave's copy instead. With `--wave`, `restore` checks the copy under
+   `alm_rollback/waves/<wave>/test_<id>/` against its manifest — an
+   incomplete or changed copy is never restored — restores it, and records
+   the restore in the run's journal before the first write and after the
+   last, which is what lets the wave continue or close. Two forms write
+   nothing to ALM and need no ALM arguments: `--accept-current-state` settles
+   named tests you have inspected and accept as they are, and
+   `--abandon-wave <wave>` closes a settled wave without converting further
+   ([troubleshooting.md](troubleshooting.md) § *Native crashes and
+   interrupted ALM conversions*).
 2. **ALM version history** (version-controlled projects): each conversion is
    checked in as a new version, so the pre-conversion version remains in the
    test's version history — a first-class rollback path.
 3. **Project snapshot/backup restore** by the ALM administrator.
 
-**What a restore does not undo.** `restore`, and the automatic rollback that
-calls the same code, put back the test's files and re-point its action script
-rows. They do **not** undo:
+**What a restore does not undo.** `restore`, and the automatic rollback and
+crash recovery's restores, which call the same code, put back the test's files
+and re-point its action script rows. They do **not** undo:
 
 - **The test's resource relations.** A restored VBScript test stays related
   to the converted `.pfl` and to `PhoenixVBRuntime.pfl`, and not to its
   original `.qfl`. ALM delivers only related resources to Test Lab, so
   re-relate the original `.qfl` to the test in ALM before running it from
   Test Lab.
-- **`.pfl` content the conversion replaced.** The prior copy is under
-  `out/<RUN_ID>/alm_aom_work/alm_rollback/resources/<test id>/` and has to be
-  uploaded back by hand if you need it — unless the run recorded that no
-  pre-conversion copy was kept, in which case there is nothing to put back.
+- **`.pfl` content the conversion replaced.** The prior copy is the one the
+  asset's note "EXISTING CONTENT REPLACED — prior copy saved to <path>" names,
+  under `out/<RUN_ID>/alm_aom_work/alm_rollback/resources/<wave>/<test id>/`,
+  and has to be uploaded back by hand if you need it — unless the run recorded
+  that no pre-conversion copy was kept, in which case there is nothing to put
+  back. That copy holds the bytes THAT write replaced: when the wave wrote the
+  same library more than once, the later copies hold the wave's own output.
+  The library as it was before the wave is the one the scan report's
+  shared-library section lists, per library, under *Pre-wave originals*: the
+  copy the wave's first recorded write of that library kept. A library left
+  out there has no copy the run can tie to that first write — an attempt
+  interrupted while converting the test that wrote it first, for example,
+  recorded nothing of what it wrote — so check it against your ALM backup. One
+  case the run cannot detect: if you cancelled a conversion after it CREATED a
+  new library, the next conversion's copy of that library holds the cancelled
+  attempt's output, and the table may list it as the original although the
+  library did not exist before the wave. Check the library's history in ALM
+  before putting a listed copy back. A new
+  wave deletes these copies for every older finished wave except the newest
+  one that wrote a test (a wave that wrote no test, such as a launch the
+  pre-flight gate refused, does not count; library writes are not recorded in
+  the journal, so a wave that only replaced libraries does not count either,
+  and its own copies stay until a newer wave that wrote a test has finished),
+  so take what you need first.
 - **The `PhoenixVBRuntime.pfl` resource, or its `UFT Phoenix` folder.**
 - **Action owners the conversion created, or the owner names it changed.**
 - **Test Lab test sets, instances and runs** created by `--run-via-alm`.
@@ -434,3 +581,33 @@ machine is ever cleared.
   settings cache) and from the command-line flags. The password can also
   come from the `UFT_MIGRATE_ALM_PASSWORD` environment variable, and
   `doctor` also accepts `UFT_MIGRATE_ALM_URL` and `UFT_MIGRATE_ALM_USERNAME`.
+- The diagnostics logs each Phoenix process keeps under
+  `%LOCALAPPDATA%\Merito\UFT Phoenix\logs\` record what the process did: its
+  steps, its errors with their tracebacks and the ALM client's error codes and
+  messages, the server, domain, project and test names it worked on, and how
+  its child processes ended. The ALM password is masked before a record is
+  written: by its value when it is 6 characters or longer (a shorter value
+  cannot be masked by value without garbling other text), and so is any value
+  that follows a name such as `password`, `--password` or
+  `UFT_MIGRATE_ALM_PASSWORD`. They stay on the machine, for the user who ran
+  Phoenix, and are deleted after 30 days.
+- A support bundle (*Collect Diagnostics…*, the Start Menu shortcut *Merito
+  UFT Phoenix Collect Diagnostics*, `uft-migrate diagnostics collect`)
+  never contains test scripts, data tables, object repositories, function
+  libraries, the settings cache, `.env` files or memory dumps. A value that
+  follows a name such as `password` or `--password` is masked in every file.
+  Every file is also searched for the ALM password itself (4 characters or
+  more), in each of its encodings, and a file that still holds it is left out —
+  when the collector knows the password: *Collect Diagnostics…* passes it, and
+  the collector decrypts, in memory only, the password the Migration Console
+  saved under the output folder — which is how the Start Menu shortcut, started
+  in the user's profile, has it. A command-line collect has a password that
+  was not saved only when `UFT_MIGRATE_ALM_PASSWORD` is set; `MANIFEST.json`
+  records when no password was available to search for. Server, domain,
+  project, user, test, folder and library names are replaced by tokens unless
+  `--keep-names` is passed; Phoenix's own words in its records (event and step
+  names, exception types, its code lines, COM member names) stay as they are
+  even where one equals such a name.
+  Nothing is uploaded: the customer sends the zip. Crash dumps and failed
+  tests' scripts, which can hold the password and test data, go only to a
+  separate `…-EXTRAS-SENSITIVE.zip`, and only the kinds the operator agreed to.

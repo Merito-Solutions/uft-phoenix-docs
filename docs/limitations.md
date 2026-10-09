@@ -8,8 +8,8 @@ boundaries and caveats that apply to the current release.
 Phoenix offers exactly two conversion paths: **local filesystem** conversion
 of UFT test directories on disk, and **whole ALM project** conversion. Both are
 **AOM-canonical** — each test is opened, converted, and re-saved through UFT's
-own Automation Object Model, producing a structurally valid, runnable UFT 26.1
-Python test (never hand-patched binary `Test.tsp`/`.usr`, never a source-only
+own Automation Object Model, producing a structurally valid, runnable Python
+test for UFT 26.1 or 26.3 (never hand-patched binary `Test.tsp`/`.usr`, never a source-only
 transpile). Both therefore require UFT installed locally; the filesystem path
 saves to a local directory, the ALM path saves back into ALM (preserving each
 test's ID). ALM conversion is all-or-nothing for a given domain/project — you
@@ -250,9 +250,11 @@ a statement of how often it will affect you.
   an empty description.
 - **Recovery scenarios are not carried.** *[6 of 116]* UFT 26.1 does **not**
   support recovery scenarios for Python tests at all, so there is nothing to
-  carry them into. UFT 26.3 adds support but requires them re-authored as
-  Python (`.prs`), a different file format from the VBScript `.qrs` the source
-  references — so this is not a gap Phoenix can close on 26.1 at any effort.
+  carry them into. UFT 26.3 supports them, but only as Python recovery
+  scenarios (`.prs`), a different file format from the VBScript `.qrs` the
+  source references, and Phoenix does not convert `.qrs` to `.prs`. On 26.1 the
+  gap cannot be closed; on 26.3, re-author the scenarios as `.prs` and
+  associate them with the converted tests by hand (not tested by Phoenix).
   **Any test relying on a recovery scenario to survive an unexpected dialog,
   crash or session state will behave differently after conversion**: the
   recovery never fires. Identify these before you convert — neither analysis
@@ -567,10 +569,11 @@ conversion rewrites both blocks.
      same run folder, so choose a **new run ID** and run the analysis under it
      first, then convert. In the GUI, change **Analysis Run ID** on Step 5 — it
      defaults to `<Domain>-<Project>`, the same value on every run; on the CLI,
-     pass `--run-id`. A conversion under an earlier run's ID resumes that run
-     and skips every test it already converted that is still Python on the
-     server, including the test you relinked, and re-running the analysis under
-     that same ID does not clear the record.
+     pass `--run-id`. A conversion under an earlier run's ID resumes that run —
+     it continues the run's conversion wave if that is unfinished — and skips
+     every test it already converted that is still Python on the server,
+     including the test you relinked, and re-running the analysis under that
+     same ID does not clear the record.
    - **ALM, if a resumed run stops on a cross-test reference:** a test carried
      forward from an interrupted run still serves as a callee, so its callers
      convert as usual. The exception is a run folder whose journal an earlier
@@ -789,6 +792,29 @@ The conversion is faithful: it carries whichever form the source library has.
 If the run time matters, change the **source** helper to the filtered query
 before converting, and the cost disappears.
 
+### Run time on UFT 26.1 and 26.3
+
+The same 81 tests, the same host, final runs: the VBScript originals took
+979 s, the converted tests 1,076 s on UFT 26.1 and 1,149 s on UFT 26.3. Most of
+the difference from VBScript is the process-scanning helper above. On short
+tests UFT 26.3 adds about 0.6 s per test over 26.1; the cause is not isolated.
+
+### A failing step ends the action
+
+When a step fails in a converted test — its object cannot be found, say —
+UFT's Python engine raises an error and the action stops at that line. The run
+report shows one `Replay Error` and a `Run Error` traceback naming the line.
+The VBScript original, run the same way from Test Lab, reported the failure
+and carried on, so every later step that depended on the missing object failed
+and was reported too. The verdict is the same, Failed; the converted report is shorter
+and the failed run faster. Measured on the reference estate: a login test whose
+window was missing failed in 22 s after conversion, with one failed step
+reported, and in 106 s before, with four.
+
+Steps that pass are unaffected. But the steps after a failure, in that action,
+no longer run: if the source relied on them — closing an application at the end
+of the action, for example — the next test can find that application still open.
+
 ## Version-controlled ALM projects
 
 Version-control support is **implemented** and needs no configuration:
@@ -813,3 +839,60 @@ function libraries. Undoing another user's checkout, the missing-permission
 library (`.pfl`) resources including `PhoenixVBRuntime.pfl` have unit coverage
 only. Validate them on a **copy** of a version-enabled project before a
 production wave.
+
+## Crash recovery (ALM upload conversions)
+
+A whole-project ALM upload conversion recovers from a native crash of its own
+process: a crash supervisor records it, keeps the evidence and starts the
+conversion again, and the new attempt restores any test the crash left changed
+from the copy the conversion wave froze before changing it
+([advanced_troubleshooting.md](advanced_troubleshooting.md) §9). Its limits:
+
+- **Only upload conversions are supervised.** An analysis (Standard or Deep), a
+  gate rehearsal (`--upload --dry-run`), a filesystem conversion and the
+  Migration Console itself are not: a native crash ends them with no result,
+  and you run them again.
+- **Recovery has a budget.** The third crash while the same test is in flight,
+  the sixth crash in a wave, or the second crash in a row outside any test ends
+  automatic recovery: the wave is aborted and what it wrote is rolled back (a
+  wave with nothing to roll back is just closed), and the test in flight, if
+  any, is reported `process-crashed`. It is not retried further.
+- **An interrupted rollback is not finished automatically.** If the conversion
+  process crashes or is stopped while it rolls a wave back, the wave stays open
+  and every later conversion in that run folder stops, naming each test still
+  to restore and its `uft-migrate restore … --wave` command. Run them by hand,
+  callers first.
+- **A rollback, automatic or by `restore`, still puts back only the test's
+  files and action rows.** A rolled-back test keeps its relation to the
+  converted `.pfl` and to `PhoenixVBRuntime.pfl` instead of its original
+  `.qfl`; replaced `.pfl` content, `PhoenixVBRuntime.pfl` entries and action
+  owners the conversion created stay as they are
+  ([alm_safety.md](alm_safety.md) § *What a restore does not undo*).
+- **Crash recovery checks test payloads only.** It does not check or repair a
+  function-library (`.pfl`) or `PhoenixVBRuntime.pfl` write that a crashed
+  attempt was making. The bytes each write replaced are kept per conversion
+  wave under `alm_aom_work\alm_rollback\resources\<wave>\<test id>\`. Library
+  writes leave no journal record, so an unfinished wave that replaced a
+  library but has not written any test yet counts as one that wrote no test
+  when a launch with other inputs closes it (its messages say *wrote no test
+  to ALM* for that reason).
+- **Older copies are pruned.** When a new wave starts, the test and library
+  copies of older waves that are finished and settled are deleted, except the
+  newest one's that wrote a test; `restore --wave` cannot use a deleted copy.
+  The first-sight copies (`alm_rollback\test_<id>_source`) are kept. Crash
+  evidence under `crash_recovery\` is kept for the newest two finished waves
+  that wrote a test. A wave that wrote no test, such as a launch the pre-flight
+  gate refused, counts toward neither, even if it replaced a function library:
+  library writes are not journaled.
+- **Stopping the conversion is not a crash.** Cancel in the console, Ctrl+C,
+  or a process ended from outside is never relaunched and rolls nothing back.
+  The wave stays open: run the conversion again with the same inputs to
+  continue it. A launch with other inputs closes it if it has not written any
+  test, and is refused otherwise until the wave is closed with
+  `restore --abandon-wave`.
+- **After the console is closed and reopened**, Convert Project needs a fresh
+  Analysis before it continues an unfinished wave, as before any conversion.
+- **The Windows evidence depends on the machine.** Event Viewer entries and
+  `Report.wer` appear where Windows Error Reporting is enabled; a crash dump
+  only where WER *LocalDumps* is configured; and none of them where a
+  just-in-time debugger is set to attach automatically.

@@ -166,7 +166,8 @@ the whole-project conversion. There is no failed-asset-only re-run: ALM
 conversion is whole-project and all-or-nothing, so `--failed-only` is refused
 for it (it applies to ALM *analysis* — `--dry-run` without `--upload`). Do not
 reach for `--resume`: it is never forwarded to the ALM pipeline, and because a
-vc-blocked run ends in the `failed` state it is refused outright (exit 2). To
+vc-blocked run ends in the `failed` state it is refused outright (exit 2) once
+that run's rollback has completed. To
 land the new run in the same folder, pass the same `--run-id` *without*
 `--resume`.
 
@@ -195,7 +196,7 @@ disqualified asset is named in `alm_preflight.json` with a reason code and a
 | Reason code | What it means | Fix |
 | --- | --- | --- |
 | `not-analyzed` | This run folder holds no analysis record for the asset. | Re-run the analysis into the same run id, or park the asset with `--alm-exclude-test-id`. |
-| `analyzed-but-not-selected` | The analysis covered it and it is in scope, but this run's discovery did not return it. | Re-run the analysis so the scope matches, or park it explicitly. |
+| `analyzed-but-not-selected` | The analysis covered it and it is in scope, but this run's discovery did not return it — not even the second time, which Phoenix runs before the gate when discovery comes back short (`alm-discovery-retried`). | If the test is still in ALM where it was, run the conversion again: a transient fault while ALM listed the Test Plan can cause this. Otherwise re-run the analysis so the scope matches, or park it explicitly. |
 | `blocked` — or any other non-`ok` analysis status (for example `shared-assets`, `no-actions`, `aom-build-failed`, `error`) | The analysis did not finish `ok` for this asset. The detail carries that analysis error, which for `blocked` quotes the first blockers. | Fix the cause the detail names — see the blocker entries above. |
 | `converter-blockers` | Converter blockers on an asset the analysis nonetheless recorded `ok` — seen when the analysis ran with `--allow-blockers` and the conversion did not. The first three are quoted in the detail. | Fix them, or re-run the analysis without the override so it reports them too. |
 | `unresolved-callee` | It calls a shareable action in a test that is not part of this analysis. | Re-point the reference at a test inside this project, or bring the callee back into scope if it was parked. |

@@ -143,7 +143,9 @@ model), [gui_field_guide.md](gui_field_guide.md) (console reference),
   pilot first, or the second pass is not a comparison. On an **ALM** pilot,
   return the project to VBScript — from a server snapshot, or with
   `uft-migrate restore --from-run <pilot run id> --alm-test-id <id>
-  --alm-url … --username … --domain … --project … --confirm-alm-backup` —
+  --alm-url … --username … --domain … --project … --confirm-alm-backup`
+  (a test that a conversion wave left half-written or unrestored needs
+  `--wave <wave>` as well; `restore` refuses it without and says so) —
   then purge `%LOCALAPPDATA%\Temp\TD_80` and run analysis and conversion
   under a **new** run id, which gives the second pass its own report set to
   compare against the first. (Without the restore, a conversion under the
@@ -213,22 +215,31 @@ model), [gui_field_guide.md](gui_field_guide.md) (console reference),
   against the analysis in its own run folder, and without a matching
   analysis every asset is recorded `not-analyzed` and the run is refused
   before any ALM write.
-- An interrupted run is re-run under the **same run id**, and it picks up
-  where it left off: an asset an earlier run of that run id converted,
-  uploaded and verified — and whose copy on the server is still Python — is
-  skipped, reported `ok` under **Carried Forward**, and the rest of the
-  project converts. That needs no flag. A run you **cancelled** is different:
-  the cancel kills the process outright, so nothing is rolled back, any
-  checkout the run took stays open, the UFT cache is not purged and a UFT
-  process may survive. Check the asset that was in flight — and its
-  checkout — before you re-run. If it is half-written, restore it first
-  with `uft-migrate restore` (Phase 3) from the snapshot at
-  `alm_aom_work\alm_rollback\test_<id>_source` in the run folder: a re-run
-  takes whatever the server now holds as its source.
-  `--resume` is not required and is refused unless the previous checkpoint is
-  still `running` and the command line matches. Conversely, to reconvert
-  everything after a mapping-rule, library or configuration change, use a
-  **new** run id: the same run id would skip the assets you want rebuilt.
+- An interrupted run is re-run under the **same run id** and with the same
+  options, and it picks up where it left off. It continues the interrupted
+  conversion wave: any test the interruption may have left half-written is
+  first compared with the copy the wave froze before changing it, and
+  restored from that copy if they differ. Then an asset an earlier run of that
+  run id converted, uploaded and verified — and whose copy on the server is
+  still complete Python — is skipped, reported `ok` under **Carried
+  Forward**, and the rest of the project converts. That needs no flag. A
+  native crash of the conversion process needs no re-run at all: the crash
+  supervisor relaunches the conversion itself, within a crash budget
+  ([alm_safety.md](alm_safety.md) § *The safety model*, item 10). A run you
+  **cancelled** is different: the cancel kills the process outright, so
+  nothing is rolled back, any checkout the run took stays open until the
+  re-run undoes it, the UFT cache is not purged and a UFT process may
+  survive. Do not let anyone run the test that was in flight until the re-run
+  has checked it. `--resume` is not required: with the same command line an
+  unfinished wave is continued with or without it, and otherwise it is
+  refused unless the previous checkpoint is still `running`. A re-run with
+  **changed** options closes the interrupted wave if it has not written any
+  test yet and starts a new one; once the wave has written a test, such a
+  re-run is refused, with the options that differ and the command that closes
+  the wave; see [troubleshooting.md](troubleshooting.md) § *Native crashes
+  and interrupted ALM conversions*. Conversely, to reconvert everything after a
+  mapping-rule, library or configuration change, use a **new** run id: the
+  same run id would skip the assets you want rebuilt.
 - A carried-forward asset still serves as a callee: the journal record it is
   carried from holds the converted action layout its callers need, so a
   caller converted later in the re-run is retargeted as usual. The one
@@ -298,10 +309,17 @@ model), [gui_field_guide.md](gui_field_guide.md) (console reference),
   frozen pre-conversion snapshots under
   `alm_aom_work\alm_rollback\test_<id>_source` (the per-test rollback
   source; the staging copy at `alm_aom_work\test_<id>_source` beside it is
-  only the latest download), the verification results, and the full event
-  log. They are created in the folder Phoenix was launched from, so launch
-  it from a writable working folder you keep — not from the install folder,
-  which an upgrade or uninstall clears.
+  only the latest download) and each conversion wave's own copies under
+  `alm_aom_work\alm_rollback\waves\` and `alm_rollback\resources\` (a new
+  wave deletes those of older finished waves, keeping only those of the newest
+  one that wrote a test), the verification results, the conversion journal
+  (`resume\alm_test_results.ndjson`), the full event log, and — after a native
+  crash — the evidence under `crash_recovery\` (kept for the newest two
+  finished waves that wrote a test). Copy anything you must keep beyond that
+  elsewhere. They
+  are created in the folder Phoenix was launched from, so launch it from a
+  writable working folder you keep — not from the install folder, which an
+  upgrade or uninstall clears.
 - Post-migration: Phoenix purges UFT's test cache
   (`%LOCALAPPDATA%\Temp\TD_80`) only on the machine that runs the
   conversion, and only for the account that runs it. Purge it by hand on

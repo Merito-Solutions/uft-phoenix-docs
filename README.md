@@ -76,7 +76,7 @@ The full documentation is published at **[https://merito-solutions.github.io/uft
 | --- | --- |
 | [ALM Safety](https://merito-solutions.github.io/uft-phoenix-docs/alm_safety/) | The write-safety model, everything a conversion writes to ALM, and how rollback works. |
 | [Blocker Remediation](https://merito-solutions.github.io/uft-phoenix-docs/remediation/) | How to fix each blocker that keeps a test from converting. |
-| [Troubleshooting](https://merito-solutions.github.io/uft-phoenix-docs/troubleshooting/) | Diagnosing environment, conversion and upload problems. |
+| [Troubleshooting](https://merito-solutions.github.io/uft-phoenix-docs/troubleshooting/) | Diagnosing environment, conversion and upload problems, and collecting diagnostics for Merito support. |
 | [Advanced Troubleshooting](https://merito-solutions.github.io/uft-phoenix-docs/advanced_troubleshooting/) | Deep diagnostics for support engineers and migration leads. |
 | [Known Limitations](https://merito-solutions.github.io/uft-phoenix-docs/limitations/) | What Phoenix does not do, and the constructs that need a human. |
 
@@ -92,7 +92,7 @@ and team enablement.
 ## About this repository
 
 This repository publishes the customer documentation for UFT Phoenix
-1.1.2. UFT Phoenix itself is proprietary software of Merito Solutions,
+1.2.2. UFT Phoenix itself is proprietary software of Merito Solutions,
 Inc., and its source code is not published here. The software is licensed
 under the agreement in [LICENSE](LICENSE), the same one the installer shows.
 The documentation is © Merito Solutions, Inc., all rights reserved — see
