@@ -338,6 +338,75 @@ constructs an expert knowingly accepts, not for output that cannot execute:
 
 `--allow-blockers` covers only the construct blockers listed above.
 
+### The free-edition limit (`license-limit`)
+
+Before the pre-flight gate, every ALM conversion that is not an analysis —
+an upload, a build-only run without `--upload`, and the `--upload --dry-run`
+rehearsal — takes the project's test-case count from its own discovery, and
+every filesystem `convert` and `run` counts the test cases under its source
+folders. Neither takes the count from the reports in the run folder, so a
+test added since the analysis is counted. Over the limit that applies — 100
+for the free edition, or the installed license's — the run stops with status
+`license-limit` and exit code 2: an ALM run after discovery and before it
+opens its own ALM session or builds anything, so it writes nothing to ALM
+(discovery has signed in and read the Test Plan, to count); a filesystem
+`convert` or `run` before it touches the run folder's files, so it leaves
+them as they were (it writes its logs). Either way no test is converted,
+backed up or changed. The filesystem conversion counts again before its first
+write, and a `--resume` of one that had started is counted only there.
+Refused at that point, the run has already rescanned (new scan reports and
+scoping summary) and `resume_state.json` records it as failed
+(`license-limit`), so `--resume` is refused afterwards: run it again without
+`--resume`. `--allow-partial-conversion` does not lift the limit.
+
+- The `licensing` block of the output, and of the analysis's
+  `scan_report.json`, gives the count (`test_cases`), the `limit`, the
+  `edition`, the `licensee`, the `alm_projects` the license names and the
+  `counting_rule`; `license_problems` says
+  why an installed license file did not apply.
+- The ALM count is every `QUICKTEST_TEST` test discovery finds under the Test
+  Plan, outside the `.TrashCan` and `Recycle Bin` folders, taken inside the
+  discovery process before the path filters and before parking. So parked
+  and excluded tests, failing tests, tests already in Python and API tests
+  that ALM stores as `QUICKTEST_TEST` all count, and the count can be higher
+  than *Assets in Scope*. On disk it is every folder with a `Test.tsp` and a
+  `.usr` under the source folders, less tests in `.TrashCan` and `Recycle
+  Bin` folders and Phoenix's own copies, before `--exclude-test-path` and
+  `--include`/`--exclude` — except tests under folders named `out`, `.git`
+  or `__pycache__`, which the default `--exclude` leaves out: they count only
+  when the run's `--include`/`--exclude` keep them.
+- `migration_log.txt` records the decision: an `alm-test-case-count` line on
+  every run that counted (the count, the limit, the edition, the license id —
+  never the licensee — and `count_basis`: `discovery`; for a failed-only
+  refresh, `carried-forward` from the full analysis, or
+  `derived-from-prior-selection` when the run folder's `alm_aom_results.json`
+  holds no licensing block — written before 1.3.0, or last written by a
+  continued conversion wave — so the count is every test id it names, less
+  the tests in `.TrashCan` and `Recycle Bin` folders)
+  and, on a conversion, an `alm-license-gate` line, level `error` when it
+  refused. A discovery that sent no count logs the warning
+  `alm-test-case-count-fallback`, and every test it returned is counted, the
+  deleted-test folders included: the count can only come out high. On disk,
+  the conversion's stderr says `license:` and the count as it starts.
+- A refused ALM run leaves the run folder's analysis as it was: no report
+  set, no executive summary, no `alm_wave_stop.json`, and `resume_state.json`
+  back to the bytes it had. Unsupervised (the rehearsal, a build-only run),
+  only `migration_log.txt` gains lines. A crash-supervised launch (every
+  upload) relays the refusal and closes the wave it opened as
+  `closed-no-writes`, so the next launch is a new wave, judged again; that
+  wave is recorded in `resume\alm_test_results.ndjson`, `resume\alm_wave.json`
+  and `crash_recovery\<wave>\`.
+- A conversion that continues an unfinished wave (§9), its abort and
+  finish-rollback workers, and `restore` are never refused for the limit,
+  whichever release started the wave; nor is a filesystem `--resume` of a
+  conversion that had started, unless its source folders now hold more test
+  cases than it recorded when it started.
+- An analysis is never refused. Over the limit, a **Deep** analysis without a
+  license that covers the project deletes each `alm_aom_work\test_<id>_build\`
+  once the test is checked and measured (§5), and the asset's notes say so.
+
+[licensing.md](licensing.md) has the customer-facing rules.
+
 ### The all-or-nothing pre-flight gate
 
 Separately, every ALM conversion first re-reads the signed-off analysis in its
@@ -398,7 +467,7 @@ folder appears). `--output-root` moves converted output, not the run folder.
 | Artifact | What to look for |
 | --- | --- |
 | `alm_aom_results.json` | Per-test truth: `status`, `error`, `blockers[]`, `converter_findings[]`, `uploaded`, `upload_verified` (`ok`/`mismatch`/`failed`), `rollback_status`, `resumed` (an earlier run of this run id already converted it and the server still holds the Python), `wave` (the conversion wave, §9), `crash_recovery` (what crash recovery did around this test; the same lines open its `notes[]` with `[crash recovery]`), the run's `discovery` block (`retried`: whether discovery ran a second time; `unplaced_tests` / `unplaced_test_ids`: tests ALM lists that discovery could not place in a Test Plan folder, which the executive summary's Next Steps name), `runtime_helper_blocks`, `test_lab_run_id`/`_status`, and `notes[]` — the chronological story of each test. A gate rehearsal (`--upload --dry-run`) never writes this file, so during a rehearsal it still holds whatever the prior analysis left there. Neither does a conversion that stopped and stayed open to resume (`alm_wave_stop.json`, below). Start here. |
-| `migration_log.txt` | JSON-lines event stream with timestamps — the cross-test timeline. Search for `"level": "error"` first (pre-flight refusals, run aborts, failed assets, upload-verify and rollback failures, failed ALM reconnects, native crashes of the conversion process and crash recovery that stopped — `alm-crash-detected`, `alm-crash-budget-exhausted`, `alm-crash-recovery-gave-up`, `alm-crash-wave-abort` — and stopped conversion waves, `alm-wave-stopped`), then `"level": "warning"` (transient retries, session reconnects, lock revocations, per-asset rollback outcomes, the cleanup and relaunch after a crash, the check of the test a crash left in flight — `alm-crash-reconcile-*` — a wave's copy of a test frozen again because the test changed in ALM before the wave wrote it, `alm-wave-snapshot-refrozen`, an unfinished wave that had written no test closed for a launch with other inputs, `alm-crash-wave-superseded`, a continued wave that skipped the pre-flight gate, `alm-preflight-skipped-wave-resume`, a discovery that failed while reading the Test Plan, died without an answer or came back short and ran a second time, `alm-discovery-retried`, and tests the project's list holds that the walk did not return and whose folder could not be read, `alm-discovery-folder-unreadable`). Each discovery that reached the Test Plan also logs one `alm-discovery-walk` info line: the start folder, the folders walked, the tests seen of every type in each top-level folder, the skips it counted, the check against the project's test list and, for a failed discovery, the error. In PowerShell: `Select-String -Path migration_log.txt -Pattern '"level": "error"'`. |
+| `migration_log.txt` | JSON-lines event stream with timestamps — the cross-test timeline. Search for `"level": "error"` first (pre-flight refusals, refusals over the free-edition limit — `alm-license-gate` — run aborts, failed assets, upload-verify and rollback failures, failed ALM reconnects, native crashes of the conversion process and crash recovery that stopped — `alm-crash-detected`, `alm-crash-budget-exhausted`, `alm-crash-recovery-gave-up`, `alm-crash-wave-abort` — and stopped conversion waves, `alm-wave-stopped`), then `"level": "warning"` (transient retries, session reconnects, lock revocations, per-asset rollback outcomes, the cleanup and relaunch after a crash, the check of the test a crash left in flight — `alm-crash-reconcile-*` — a wave's copy of a test frozen again because the test changed in ALM before the wave wrote it, `alm-wave-snapshot-refrozen`, an unfinished wave that had written no test closed for a launch with other inputs, `alm-crash-wave-superseded`, a continued wave that skipped the pre-flight gate, `alm-preflight-skipped-wave-resume`, a discovery that failed while reading the Test Plan, died without an answer or came back short and ran a second time, `alm-discovery-retried`, and tests the project's list holds that the walk did not return and whose folder could not be read, `alm-discovery-folder-unreadable`; a discovery that sent no test-case count, `alm-test-case-count-fallback`; and, on a failed-only refresh, tests the previous analysis parked that are no longer parked and are analyzed now, `alm-failed-only-unparked`, or that name no test ALM could find, `alm-failed-only-unparked-not-found`). Every run that counted test cases logs one `alm-test-case-count` info line (§4). Each discovery that reached the Test Plan also logs one `alm-discovery-walk` info line: the start folder, the folders walked, the tests seen of every type in each top-level folder, the skips it counted, the check against the project's test list and, for a failed discovery, the error. In PowerShell: `Select-String -Path migration_log.txt -Pattern '"level": "error"'`. |
 | `alm_preflight.json` | The pre-flight verdict, written on every conversion run: `status` (`pass`/`fail`), the selected and eligible ids, and every disqualified, out-of-scope and warning asset with its `reason_code` and detail. When `status` is `fail`, no ALM write happened (§4). A conversion that continues an unfinished wave does not run the gate again (§9); it writes back the gate report the wave started under, which the wave recorded in the journal. |
 | `resume/alm_test_results.ndjson` | The durable conversion journal — one JSON line per event, each written as it happens. Since 1.1.5 the records of an upload conversion also carry its conversion wave id (`wave`). The `record` field: per asset `intent`, `attempt`, `terminal`, `already-converted` and `resume-mismatch`; the write markers `upload-started` (written to disk *before* the first write of a test's payload — no marker means that write never started), `upload-saved` and `upload-verified`; the abort and rollback records `aborted`, `not-attempted`, `rollback-started`, `restore-started`/`restore-done`, `rollback-asset-done`, `rollback-finished` and `rollback`; crash recovery's `crash`, `budget-exhausted`, `reconcile-untouched`, `reconcile-vc-undo`, `legacy-in-flight-verified`, `operator-settled` and `wave-snapshot-refrozen`; the wave's own `run-start`, `run-end`, `run-result`, `wave-start`, `wave-attempt`, `attempt-end`, `attempt-interrupted`, `wave-phase` and `wave-end` (whose `outcome` says how the wave closed — `superseded-no-writes`, for example, for an unfinished wave that had written no test and was replaced by a launch with other inputs); and `session-lost`/`session-restored`/`session-reconnect-failed`. A write that another program blocks for a moment — a backup or sync agent, an antivirus scanner — is retried for about 8 seconds. It survives a killed run, and a re-run of the same run id reads it to continue an unfinished wave and to skip assets that are already converted. The `terminal` record also carries the test's path and name and its converted action layout (`action_renumber_map`, `action_name_folders`, `action_folder_has_code`, `function_library_links`), which is what lets a skipped asset still serve as a callee for the tests converted after it. A journal written by an earlier version of Phoenix lacks those fields, and a caller of an asset carried forward from one blocks with `that callee has no conversion record in this run` (see [troubleshooting.md](troubleshooting.md)). Read it first after an interrupted conversion. In PowerShell: `Select-String -Path resume\alm_test_results.ndjson -Pattern '"record": "terminal"'`. |
 | `alm_aom_work/test_<id>_source/` | The test as downloaded by the **latest** attempt in this run folder. It is deleted and downloaded again on every attempt, so after a re-conversion it can hold the converted Python. Contains `Download.xml` (asset-owner manifest, §1a). |
@@ -409,7 +478,8 @@ folder appears). `--output-root` moves converted output, not the run folder.
 | `crash_recovery/<wave>/` | What the crash supervisor kept for one conversion wave (§9): per attempt `attempt_NN/` with `command.txt` (the password masked), `stdout.log` and `stderr.log`, plus, after a native crash, `crash.json` and a copy of Windows' `Report.wer` when Windows wrote one; the wave's `supervisor.log`; and `restore_commands.txt` when recovery stopped with tests still to restore. Crash dumps are never copied here. A wave that completes without a crash keeps only `command.txt` and `supervisor.log`, and only the newest two finished waves that wrote a test keep their folder (a wave that wrote no test does not count, even if it replaced a function library: library writes are not journaled); an unfinished wave always keeps its own. |
 | `alm_wave_stop.json` | Written when a conversion wave stops and stays open (§9): the reason, the test, the copy to restore from and the next steps. The report set is left as it was. Deleted when a later upload conversion in this run folder ends without stopping. |
 | `resume/alm_wave.json`, `resume/phoenix_run.lock` | A summary of the latest wave, written by the crash supervisor (the journal, not this file, decides everything), and the run-folder lock: while one Phoenix process converts, analyzes or restores an ALM project in a run folder, another such process is refused there. |
-| `alm_aom_work/test_<id>_build/<TestName>/` | The AOM-built payload that was (or would be) uploaded. The converted Python is human-readable in the `Action<N>/Script.pts` files: `Action0` is the main flow, and `Action1` holds a source action only when that action was itself named `Action1` (about 60% of the reference estate) — otherwise the AOM's inert default is removed and the named actions occupy `Action2..N`, usually leaving no `Action1/` at all. Read the `.usr` `[Actions]` section for the name→folder map rather than assuming the numbering. |
+| `alm_aom_work/test_<id>_build/<TestName>/` | The AOM-built payload that was (or would be) uploaded. The converted Python is human-readable in the `Action<N>/Script.pts` files: `Action0` is the main flow, and `Action1` holds a source action only when that action was itself named `Action1` (about 60% of the reference estate) — otherwise the AOM's inert default is removed and the named actions occupy `Action2..N`, usually leaving no `Action1/` at all. Read the `.usr` `[Actions]` section for the name→folder map rather than assuming the numbering. A Deep analysis of a project over the free edition's limit, with no license that covers it, deletes `test_<id>_build/` once the test is checked and measured, so the folder is absent: the asset's notes say *The build was checked and measured, then deleted, because this project was over its test-case limit.*, and the measurements are in the reports ([licensing.md](licensing.md)). A build UFT still held is retried when the analysis ends, and the report names how many could not be deleted. |
+| `scoping_summary.json`, `scoping_summary.html` | The analysis in counts and summary figures, with no names, paths, identifiers or test code, written by every analysis on both paths, for the customer to send Merito, if they choose, when scoping a license: the `license` decision without the licensee, `test_cases` by type and by scope, the analysis results, blockers by category, `cross_test` and `function_libraries` (schema `uft-phoenix-scoping-summary/1`). Never a name, path, id, run id or line of code. |
 | `alm_aom_work/test_<id>_verify/` | The post-upload re-download used for byte verification. |
 | `alm_aom_work/test_<id>_runresults/.../run_results.xml` | Test Lab run detail: `<ErrorText>` nodes carry the real failure; `<Parameter name=... value=...>` proves parameter delivery at run time. |
 | `executive_summary.html` | The verdict + next-steps rollup with drill-down links. |
@@ -724,7 +794,9 @@ too; if the abort itself crashes before its rollback starts, running the
 conversion again retries it.
 
 **What is never relaunched.** A worker that exits by itself, successfully or
-not (a wave that stopped included); Ctrl+C or a closed console window; a
+not (a wave that stopped included, and a conversion refused over the free
+edition's limit, `license-limit`, whose wave closes `closed-no-writes`);
+Ctrl+C or a closed console window; a
 worker ended from outside, for example with `Stop-Process` (exit code
 `0xFFFFFFFF`); a worker that could not be started; a crash after the worker
 recorded its result, which is reported as recorded; a crash, or an exit
@@ -859,12 +931,15 @@ It is a zip under `out\_support\`, beside a folder of the same files:
 | `README.txt` | What the bundle is, what is in it and never in it, how the redaction worked and how to check it |
 | `MANIFEST.json` | Every file with its SHA-256; what was left out and why; the redaction rules' hash; the canary and final-scan results |
 | `TRIAGE.md`, `triage.json` | The first look: build and risk flags, the process tree, the verdict and the failure that caused it, fault groups, native crashes, discovery, next steps |
-| `environment\` | Windows, Python, pywin32, UFT One and the ALM client; WER and LocalDumps settings; the WER reports and Application events 1000/1001 of the window; `doctor`'s read-only checks; dumps and `%TEMP%` leftovers counted, never opened |
+| `environment\` | Windows, Python, pywin32, UFT One and the ALM client; the edition in use (its license id, limit, dates and number of ALM projects, and each license file's store and status — never the licensee, a path or a signature); WER and LocalDumps settings; the WER reports and Application events 1000/1001 of the window; `doctor`'s read-only checks, without the `license` row, which names the licensee; dumps and `%TEMP%` leftovers counted, never opened |
 | `logs\` | The process logs of the window (§5) |
 | `run\run-1\` | The run folder's allow-listed files under their own relative paths: the journal, `migration_log.txt`, the breadcrumbs, the results and `crash_recovery\` |
 
-ALM names in it are tokens (`project-1`, `test-3f9a2c`); numeric test ids are
-kept, and the map back to the real names stays with the customer.
+ALM names in it are tokens (`project-1`, `test-3f9a2c`), and so is the
+licensee of a UFT Phoenix license (`licensee-1`), with the ALM projects a
+license names, wherever a `licensee` field or Phoenix's own license sentences
+carry them; numeric test ids are kept, and the map back to the real names
+stays with the customer.
 
 `uft-migrate diagnostics triage <zip or folder>` prints the same `TRIAGE.md`
 with the reader's own, newest known-issue table. It also reads a raw run folder

@@ -37,6 +37,16 @@ model), [gui_field_guide.md](gui_field_guide.md) (console reference),
   is refused before any ALM connection is opened.
 - Aggregate blocker categories and risk distribution from the scan reports;
   enable the dependency graph to map shared libraries and reusable actions.
+- Read the test-case count in each analysis report (*Edition*, and over the
+  limit the *Scoping required* notice; the `licensing` block of
+  `scan_report.json`). The free edition converts up to 100 test cases per
+  conversion: a whole ALM project, or every test under a filesystem run's
+  source folders, counted before parking and exclusions
+  ([licensing.md](licensing.md)). For a conversion over the limit, request
+  scoping from Merito — the analysis writes a scoping summary, which holds
+  counts and summary figures, with no names, paths, identifiers or test code,
+  that you can send Merito if you choose — and install the license before
+  Phase 2: the pilot converts tests too.
 - Identify copy/paste-derived tests early (they surface as `shared-assets`)
   and decide: re-create each so it owns its assets, or retire it (converting
   the owning test does not clear the refusal).
@@ -54,21 +64,27 @@ model), [gui_field_guide.md](gui_field_guide.md) (console reference),
   not evidence that all four are absent.
 - *Exit:* blocker inventory triaged into fix-at-source and out-of-scope
   buckets (a custom mapping rule cannot clear a blocker), **and** the
-  undetected-construct sweep run and its hits triaged.
+  undetected-construct sweep run and its hits triaged; for a conversion of
+  more than 100 test cases, a license that covers it installed on the
+  migration workstation (`doctor`'s `license` row names it).
 
 ## 2. Pilot
 
 - Pilot on a small, representative test set — a **filesystem** copy of
   low/medium-risk tests, or a **dedicated pilot ALM project** seeded with
   copies (ALM conversion is whole-project, so you cannot upload against a
-  subset of the production project). Seed it so that **each test owns its
-  assets**: save each test into the pilot project from UFT (Save As), or
-  paste with the option that creates copies of related entities. A copy that
-  still points at the source test's assets is refused as `shared-assets`
-  with no override. Copy the resources those tests link (function libraries,
-  shared object repositories) and every callee of a cross-test caller,
-  keeping the Test Plan and Resources paths the same so the references
-  resolve.
+  subset of the production project). When the tests come from a project or
+  folder of more than 100 test cases, the pilot needs a license too: whatever
+  your reason, test cases you copy or move out of an ALM project or folder
+  still count toward any conversion of that project or folder (license
+  agreement, section 2.g; see [licensing.md](licensing.md)). Seed it so that
+  **each test owns its assets**: save each test into the pilot project from
+  UFT (Save As), or paste with the option that creates copies of related
+  entities. A copy that still points at the source test's assets is refused as
+  `shared-assets` with no override. Copy the resources those tests link
+  (function libraries, shared object repositories) and every callee of a
+  cross-test caller, keeping the Test Plan and Resources paths the same so the
+  references resolve.
 - Include at least one test exercising each estate trait: function
   libraries, action parameters, DataTables, object repositories, and a
   cross-test reusable-action caller.
@@ -90,7 +106,10 @@ model), [gui_field_guide.md](gui_field_guide.md) (console reference),
   converted tests on disk — under
   `out/<run id>/alm_aom_work/test_<id>_build/<TestName>/`, the Action
   folders sitting inside that test-name directory — so a Standard analysis
-  leaves nothing to compare. Review the report, then on **Step 6** open
+  leaves nothing to compare. The builds are kept for a project of 100 test
+  cases or fewer, or one a license covers; over the limit with no license, a
+  Deep analysis deletes each build once it is checked and measured, and
+  there is nothing to compare either. Review the report, then on **Step 6** open
   *Compare Converted Output…*, pick an `Action<N>/Script.pts` from that
   build folder, then browse to the original `Action<N>/Script.mts` under
   `test_<id>_source/` — an ALM build does not pair automatically. Then

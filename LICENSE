@@ -7,20 +7,133 @@ IMPORTANT — READ CAREFULLY. This Software License Agreement (the
 and Merito Solutions, Inc. ("Merito", "Licensor") governing the use of the
 UFT Phoenix software, including its command-line tools, graphical
 interface, converters, documentation, and any updates provided to you
-(collectively, the "Software").
+(collectively, the "Software"). If you accept this Agreement for a company
+or other organization, including by deploying the Software in a silent
+installation with the installer's /ACCEPTEULA option, you accept it on
+that organization's behalf and confirm that you have authority to bind it,
+and "you" means that organization. If you do not have that authority, you
+accept this Agreement for yourself, and you may not install or use the
+Software for that organization. The Software has a Free Edition and a
+Licensed Edition, described in section 1.
 
 BY INSTALLING, COPYING, OR OTHERWISE USING THE SOFTWARE, YOU AGREE TO BE
 BOUND BY THE TERMS OF THIS AGREEMENT. IF YOU DO NOT AGREE, DO NOT INSTALL
 OR USE THE SOFTWARE.
 
-1. LICENSE GRANT
-   Subject to the terms of this Agreement and payment of applicable fees,
-   Merito grants you a limited, non-exclusive, non-transferable,
-   non-sublicensable license to install and use the Software, in object and
-   script form, solely for your internal business purpose of analyzing and
-   migrating your own OpenText UFT One / Micro Focus UFT test assets,
-   during the term stated in the applicable order form or statement of
-   work.
+1. DEFINITIONS AND LICENSE GRANT
+   a. Definitions. In this Agreement:
+      "ALM" means OpenText Application Quality Management (formerly
+      ALM/Quality Center), the test management server the Software works
+      with. An "ALM project" is one project in one domain on one ALM
+      server.
+      "Test Case" means a UFT One GUI test. In an ALM project, a Test Case
+      is a test of type QUICKTEST_TEST, including an API test that ALM
+      stores under that type; tests of other types are not Test Cases. On a
+      file system, a Test Case is a folder that holds both a Test.tsp file
+      and a .usr file. A test is a Test Case whether or not the Software
+      can analyze or convert it, and whether or not it has already been
+      converted to Python. Function libraries, object repositories,
+      actions, and other resources are not Test Cases.
+      "Conversion" means the set of Test Cases that one run of the
+      Software covers: every Test Case in one ALM project, including any
+      in ALM's Unattached area, or under all the source folders of one
+      file-system run, counted before any test is parked, excluded, or
+      filtered out of the run. Tests inside a folder named Recycle Bin or
+      .TrashCan, at any level within the ALM project or below the run's
+      source folders, are not counted. Tests inside a folder named out,
+      .git, or __pycache__ below the run's source folders are not counted
+      unless the run converts them. A copy of a Test Case that the
+      Software itself made, such as a backup or a converted copy in its
+      output folder, is not counted. A Conversion is that set of Test
+      Cases, not the act of converting them.
+      To "convert" a Test Case means to use the Software to produce a
+      converted version of it, as the Software does in Step 6 (Review and
+      Run) of its Migration Console and in the equivalent commands,
+      whether the Software builds that version only, saves or uploads it,
+      or rehearses saving or uploading it.
+      "Assessment" means using the Software to discover, analyze,
+      measure, and report on Test Cases, as the Software does in Step 5
+      (Analysis and Reports) of its Migration Console and in the
+      equivalent commands, including an analysis that builds tests only
+      to measure them; building a test only to measure it is not
+      converting it. "Assessment Output" means the reports, the scoping
+      summary, the report the Software titles "Technical Conversion
+      Breakdown", and any test that an Assessment produces.
+      "Converted Assets" means the converted tests and other assets that
+      the Software produces from your source assets when you convert Test
+      Cases as this Agreement permits.
+      "Deploy" means to save or upload a converted test to ALM or to any
+      other place where you keep tests for use, or to use it in your
+      regular testing.
+      "Order" means an order form, statement of work, or other written
+      agreement for the Software signed by you and Merito.
+      "License File" means a file that Merito issues to you under an
+      Order and signs digitally. It names you as the licensee and states
+      the largest Conversion, in Test Cases, that it covers (or that it
+      has no limit), its expiry date (or that it does not expire), and
+      any ALM projects to which it is limited.
+      A capitalized word has the meaning this section 1.a gives it; the
+      same word in lower case, and any product feature name, has its
+      ordinary meaning.
+   b. Free Edition. Subject to the terms of this Agreement, Merito grants
+      you, free of charge, a limited, non-exclusive, non-transferable,
+      non-sublicensable license to install and use the Software, in
+      object and script form, solely for your internal business purpose
+      of assessing and migrating your own OpenText UFT One / Micro Focus
+      UFT test assets (the "Free Edition"). The Free Edition covers up to
+      100 Test Cases per Conversion: you may perform an Assessment of a
+      Conversion of any size, but you may convert the Test Cases of a
+      Conversion, and Deploy their Converted Assets, only if it holds 100
+      Test Cases or fewer.
+   c. Licensed Edition. If you have an Order and Merito has issued you a
+      License File, then, subject to the terms of this Agreement and
+      payment of the fees in your Order, you may also, under the license
+      in section 1.b, convert the Test Cases of any Conversion that your
+      License File covers, and Deploy their Converted Assets, within the
+      term, the Test Case limit, and the ALM projects that your Order and
+      License File state (the "Licensed Edition"). A License File that
+      names ALM projects covers only the Test Cases of those projects,
+      including when you convert them on a file system.
+   d. Assessment Output. Assessment Output is for assessment only. You
+      may use it to evaluate, plan, scope, and budget a migration, and
+      you may send it to Merito under section 3. Until you may convert
+      the Test Cases of its Conversion under section 1.b or 1.c, a test
+      the Software builds during an Assessment is an evaluation copy: you
+      may open, inspect, and run it to evaluate the Software, but you may
+      not Deploy it or otherwise use it instead of converting the Test
+      Case it was built from. A Conversion of more than 100 Test Cases
+      needs the Licensed Edition, with a License File that covers it,
+      before any of its Test Cases are converted or Deployed, including
+      from tests built during an Assessment. If Test Cases are converted
+      or Deployed without the license this Agreement requires, those
+      converted tests are not Converted Assets, and the license in
+      section 5 does not extend to the helper code in them. You must then
+      stop using those converted tests until you obtain a License File
+      that covers their Conversion. Merito may also seek any other remedy
+      available at law or in equity, including injunctive relief.
+   e. License Files. A License File is issued to you alone. The Software
+      checks it on your computer, without contacting Merito. Your License
+      File records what your Order grants; if they differ, your Order
+      prevails, and Merito will promptly issue a corrected License File.
+      Subject to your Order, a License File gives no rights for a
+      Conversion it does not cover, or after its expiry date; the Free
+      Edition then applies.
+   f. Restore and roll back. Whatever your edition, you may use the
+      Software to restore tests from the backups it made, to roll back
+      tests it converted, and to finish or undo a run that was interrupted
+      while converting Test Cases, if converting them was permitted when
+      that run started.
+   g. The Software's count. The Software counts Test Cases to help you
+      stay within a Test Case limit. Its count is a guide only. The
+      definitions in section 1.a govern, and the Software allowing you to
+      convert or Deploy Test Cases does not mean this Agreement permits
+      it. In particular, the Software does not count Test Cases in ALM's
+      Unattached area, and it accepts any valid License File on a file
+      system, even one limited to named ALM projects. Merito does not
+      warrant that the Software's count matches section 1.a. The Software
+      may count a test that section 1.a excludes, such as a backup it made
+      whose converted test has been moved or deleted; you may delete that
+      backup and run the Software again.
 
 2. RESTRICTIONS
    Except as expressly permitted by this Agreement or by applicable law
@@ -36,27 +149,94 @@ OR USE THE SOFTWARE.
    e. use the Software to provide services to third parties (including as
       a service bureau or managed migration service) without a separate
       written agreement with Merito;
-   f. disclose the results of any benchmark or evaluation of the Software
-      to any third party without Merito's prior written consent.
+   f. publish, or disclose to any third party, the results of any
+      benchmark or evaluation of the Software without Merito's prior
+      written consent, except that you may share Assessment Output and
+      your own evaluation of the Software with your employees, and with
+      your contractors and professional advisers who need it to help you
+      evaluate, plan, or carry out a migration of your own test assets and
+      who are bound by duties of confidentiality at least as protective as
+      this section, and you are responsible for their compliance with this
+      Agreement;
+   g. divide a Conversion or otherwise work around a Test Case limit.
+      Whatever your reason, (i) Test Cases that you copy or move out of an
+      ALM project or folder continue to count toward any Conversion of
+      that ALM project or folder, and (ii) when you run the Software
+      separately on two or more folders that share a parent folder, the
+      Test Cases in all of them count as one Conversion of that parent
+      folder;
+   h. remove, disable, bypass, or interfere with the Software's count of
+      Test Cases, its Test Case limit, or its check of License Files,
+      including by modifying the Software or its data, running a modified
+      copy of it, or changing your computer's date; or
+   i. create, alter, or forge a License File, use a License File that
+      Merito did not issue to you, use a License File that is limited to
+      named ALM projects to convert Test Cases from any other ALM project,
+      including on a file system, or share, publish, or transfer a License
+      File to anyone else.
+   Merito may ask you, no more than once in any twelve (12) month period
+   unless Merito has reasonable grounds to believe you have exceeded a
+   Test Case limit, to confirm in writing the artifact count of any
+   Conversion you have converted and, for a file-system run under a
+   License File limited to named ALM projects, the ALM project its Test
+   Cases came from. A Conversion's artifact count is the number of its
+   Test Cases. You will respond within thirty (30) days with a written
+   confirmation signed by someone authorized to bind you, together with
+   reasonable supporting records, such as the Software's scoping summary
+   for that Conversion. Failing to respond, or giving a materially
+   inaccurate count or source, is a breach of this Agreement, and
+   section 1.d applies to any Test Cases converted beyond your Test Case
+   limit or outside the ALM projects your License File names.
 
 3. CUSTOMER DATA AND ALM ENVIRONMENTS
    a. The Software reads and, when explicitly enabled by you, writes to
-      your OpenText ALM / Quality Center projects and UFT test assets. You
-      are solely responsible for (i) maintaining complete, restorable
-      backups of every ALM project and file-system asset the Software
-      touches, and (ii) verifying converted assets before relying on them.
-      The Software's backup confirmation prompts do not create any Merito
-      obligation to preserve or recover your data.
+      your ALM projects and UFT test assets. You are solely responsible
+      for (i) maintaining complete, restorable backups of every ALM
+      project and file-system asset the Software touches, and (ii)
+      verifying converted assets before relying on them. The Software's
+      backup confirmation prompts do not create any Merito obligation to
+      preserve or recover your data.
    b. You represent that you hold all rights and consents necessary for
       the Software to access and process the test assets you point it at.
-   c. The Software operates entirely within your environment. Merito does
-      not receive, host, or process your test assets unless you separately
-      provide them under a services engagement.
+   c. The Software operates entirely within your environment. It connects
+      only to the ALM server and UFT One installation you point it at. It
+      sends no usage data, test assets, reports, or other information to
+      Merito, and it checks License Files without contacting Merito. The
+      Software and its reports contain links to Merito's website, which
+      open in your web browser only when you click them. Those links carry
+      campaign tags that tell Merito the visit came from UFT Phoenix and
+      contain no test names, counts, or other data about your tests or
+      environment, although following the link shown when a conversion
+      exceeds its limit tells Merito that it did. Your visit to Merito's
+      website is governed by Merito's Privacy Policy at
+      https://www.merito.com/legal-docs/commercial-privacy-policy.pdf and
+      Cookie Policy at https://www.merito.com/legal/cookie-policy. Merito
+      receives only what you choose to send it, and you have no obligation
+      to send Merito anything.
+   d. If you choose to send Merito the scoping summary or other output of
+      the Software so that Merito can scope or quote a license or services
+      for you, Merito will keep it confidential for three (3) years after
+      receipt, or for any trade secret for as long as it remains a trade
+      secret, use it only for that scoping and quoting, and delete it
+      within thirty (30) days after you ask. Merito may keep (i) copies in
+      routine backups until they are overwritten in the ordinary course,
+      (ii) copies it must keep to comply with law or a legal hold, and
+      (iii) the quotes, Orders, and related records it creates, including
+      the Test Case counts and other figures in them, and anything Merito
+      keeps remains subject to this section 3.d. These obligations do not
+      apply to information that is or becomes public through no fault of
+      Merito, that Merito already knew or develops independently, or that
+      Merito receives from a third party without a duty of
+      confidentiality. Merito may disclose it if required by law, after
+      giving you prompt notice where the law allows. The scoping summary
+      contains no test code; other reports can contain excerpts of your
+      tests, so check what you send.
 
 4. THIRD-PARTY SOFTWARE
    a. The Software interoperates with, but does not include, OpenText UFT
-      One and OpenText ALM/Quality Center. You are responsible for holding
-      valid licenses for those products.
+      One and OpenText Application Quality Management (formerly ALM/Quality
+      Center). You are responsible for holding valid licenses for those
+      products.
    b. The offline package includes redistributed third-party components,
       among them a CPython runtime and the libraries it links (including
       OpenSSL, SQLite, zlib-ng, zlib, Expat, mpdecimal, and liblzma), its
@@ -69,27 +249,72 @@ OR USE THE SOFTWARE.
 5. INTELLECTUAL PROPERTY
    The Software is licensed, not sold. Merito and its licensors retain all
    right, title, and interest in and to the Software, including all
-   intellectual property rights. Converted test assets produced from your
-   source assets are your property; the conversion templates, compatibility
-   helper code emitted into converted assets, and the Software itself
-   remain Merito's property, and Merito grants you a perpetual,
-   royalty-free license to use such emitted helper code solely as embedded
-   in, or loaded by, your converted assets. That license covers both helper
-   code written into a converted asset and the shared helper library the
-   Software installs alongside your assets (PhoenixVBRuntime.pfl), including
-   the copies of it the Software places in your ALM project or output
-   folders.
+   intellectual property rights. Converted Assets are your property; the
+   templates the Software uses to convert tests, the compatibility helper
+   code emitted into converted assets, and the Software itself remain
+   Merito's property, and Merito grants you a perpetual, royalty-free
+   license to use such emitted helper code solely as embedded in, or loaded
+   by, your Converted Assets. That license covers both helper code written
+   into a Converted Asset and the shared helper library the Software
+   installs alongside your assets (PhoenixVBRuntime.pfl), including the
+   copies of it the Software places in your ALM project or output folders.
+   Tests the Software builds during an Assessment are not Converted Assets.
+   Your rights in your own test content are unaffected, and Merito grants
+   you a license to use the helper code in those tests solely as section
+   1.d allows, for as long as this Agreement remains in effect. Once you
+   may convert the Test Cases of a Conversion under section 1.b or 1.c, a
+   test built during an Assessment of that Conversion becomes a Converted
+   Asset.
 
 6. SUPPORT AND UPDATES
-   Support and maintenance, if any, are provided under the applicable
-   order form or statement of work. Updates supplied under support are
-   governed by this Agreement.
+   a. Support and maintenance for the Licensed Edition, if any, are
+      provided under your Order.
+   b. Merito provides support for the Free Edition on a best-effort basis
+      only. Merito will try to help, for example with a diagnostics
+      bundle you choose to send, but it does not commit to any response
+      time, resolution, or level of service, and it may stop providing
+      such support at any time.
+   c. If you send Merito a diagnostics bundle or other information for
+      support, Merito will keep it confidential for three (3) years after
+      receipt, or for any trade secret for as long as it remains a trade
+      secret, use it only to provide that support, and delete it within
+      thirty (30) days after you ask. Merito may keep (i) copies in
+      routine backups until they are overwritten in the ordinary course,
+      (ii) copies it must keep to comply with law or a legal hold, and
+      (iii) the support records it creates, and anything Merito keeps
+      remains subject to this section 6.c. The exceptions and the
+      permitted disclosure in section 3.d apply to this section as well.
+   d. Updates, whether supplied under support or otherwise, are governed
+      by this Agreement as presented when you install them.
 
 7. TERM AND TERMINATION
-   This Agreement is effective until terminated. It terminates
-   automatically if you breach any of its terms. Upon termination you must
-   cease all use of the Software and destroy all copies. Sections 3
-   through 10 survive termination.
+   a. This Agreement is effective until terminated. It terminates
+      automatically if you breach section 2.h or 2.i, and Merito may
+      terminate it by notice if you breach any other term. If you breach
+      section 1.b, 1.c, 1.d, or 2.g, or the last paragraph of section 2,
+      this Agreement terminates only if you do not cure the breach, as
+      section 1.d allows, within thirty (30) days after Merito's notice of
+      it. Upon termination you must cease all use of the Software, except
+      that for up to thirty (30) days you may use it to restore tests from
+      the backups it made or to roll back tests it converted, and you must
+      then destroy all copies. Sections 1.d, 2 (except section 2.f, which
+      survives for two (2) years after termination), and 3 through 10
+      survive termination.
+   b. Merito may change or end the Free Edition at any time. A change,
+      such as a different Test Case limit, applies to a version of the
+      Software once you accept this Agreement on installing that version.
+      Merito may end the Free Edition for all versions by notice to you,
+      including by email to the address used to request the Software, and
+      by posting the notice on its website, in each case at least thirty
+      (30) days before the end takes effect; after that date, you may use
+      the Software only under the Licensed Edition, except as section 1.f
+      allows.
+   c. Your Licensed Edition rights last for the term your Order states.
+      When a License File expires, the Free Edition applies until Merito
+      issues you a new one.
+   d. Ending the Free Edition, a License File, an Order, or this
+      Agreement does not affect Converted Assets you produced before
+      then, or the license in section 5 to the helper code in them.
 
 8. WARRANTY DISCLAIMER
    THE SOFTWARE IS PROVIDED "AS IS" AND "AS AVAILABLE". TO THE MAXIMUM
@@ -97,8 +322,8 @@ OR USE THE SOFTWARE.
    IMPLIED, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
    PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT, AND ANY WARRANTY THAT
    CONVERTED ASSETS WILL BE ERROR-FREE OR FUNCTIONALLY EQUIVALENT TO THEIR
-   SOURCE ASSETS. AUTOMATED CONVERSION OUTPUT REQUIRES HUMAN REVIEW AND
-   TESTING BEFORE PRODUCTION USE.
+   SOURCE ASSETS. CONVERTED ASSETS AND ALL OTHER OUTPUT OF THE SOFTWARE
+   REQUIRE HUMAN REVIEW AND TESTING BEFORE PRODUCTION USE.
 
 9. LIMITATION OF LIABILITY
    TO THE MAXIMUM EXTENT PERMITTED BY LAW: (a) IN NO EVENT SHALL MERITO BE
@@ -108,6 +333,13 @@ OR USE THE SOFTWARE.
    ADVISED OF THE POSSIBILITY OF SUCH DAMAGES; AND (b) MERITO'S TOTAL
    AGGREGATE LIABILITY UNDER THIS AGREEMENT SHALL NOT EXCEED THE FEES PAID
    BY YOU FOR THE SOFTWARE IN THE TWELVE (12) MONTHS PRECEDING THE CLAIM.
+   THE LIMITATIONS IN THIS SECTION 9 DO NOT APPLY TO LIABILITY THAT CANNOT
+   BE LIMITED UNDER APPLICABLE LAW, INCLUDING LIABILITY FOR FRAUD OR FOR
+   WILLFUL AND WANTON MISCONDUCT. YOU ACKNOWLEDGE THAT MERITO PROVIDES THE
+   FREE EDITION WITHOUT CHARGE AND IN RELIANCE ON THESE LIMITATIONS, AND
+   THAT FOR THE FREE EDITION, AND FOR ANY CLAIM WHERE YOU HAVE PAID NO
+   FEES FOR THE SOFTWARE, MERITO'S TOTAL AGGREGATE LIABILITY UNDER THIS
+   AGREEMENT IS ZERO DOLLARS (US $0).
 
 10. GENERAL
    This Agreement is governed by the laws of the State of Colorado, without
@@ -115,12 +347,18 @@ OR USE THE SOFTWARE.
    jurisdiction and venue of the state courts sitting in Boulder County,
    Colorado, and of the United States District Court for the District of
    Colorado sitting in Denver, for any dispute arising out of or relating to
-   this Agreement. It constitutes the entire agreement between the parties
-   regarding the Software and supersedes all prior or contemporaneous
-   communications on that subject. If any provision is held unenforceable,
-   the remainder remains in effect. You may not assign this Agreement
-   without Merito's prior written consent. No failure to enforce any
-   provision waives it.
+   this Agreement. This Agreement, together with any Order, constitutes the
+   entire agreement between the parties regarding the Software and
+   supersedes all prior or contemporaneous communications on that subject.
+   If this Agreement conflicts with an Order, the Order prevails to the
+   extent of the conflict. You accept this Agreement again each time you
+   install or upgrade the Software; that acceptance does not amend or
+   replace any Order. If any provision is held unenforceable, the
+   remainder remains in effect. You may not assign this Agreement without
+   Merito's prior written consent. No failure to enforce any provision
+   waives it.
 
 Copyright (c) 2026 Merito Solutions, Inc. All rights reserved.
-UFT One, ALM, and Quality Center are trademarks of Open Text Corporation.
+OpenText, UFT One, Application Quality Management, ALM, Quality Center,
+and Micro Focus are trademarks or registered trademarks of Open Text
+Corporation or its affiliates.

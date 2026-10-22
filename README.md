@@ -46,6 +46,10 @@ investment carries forward instead of being rewritten by hand.
 - **Built for real estates.** Tests that call each other's shared actions
   are converted together, and version history is kept on version-controlled
   projects.
+- **Free for conversions of up to 100 test cases.** The analysis has no
+  limit; a larger conversion needs a license from Merito —
+  [request scoping](https://www.merito.com/solutions/uft-phoenix/scope?utm_source=other&utm_medium=referral&utm_campaign=merito-uft-phoenix-vbs-to-python-utility-5100009), and read
+  [how test cases are counted](https://merito-solutions.github.io/uft-phoenix-docs/licensing/).
 
 To request access to UFT Phoenix, use the
 [request access](https://www.merito.com/request-access/uft-phoenix?utm_source=other&utm_medium=referral&utm_campaign=merito-uft-phoenix-vbs-to-python-utility-5100009) link.
@@ -61,6 +65,7 @@ The full documentation is published at **[https://merito-solutions.github.io/uft
 | [Installation](https://merito-solutions.github.io/uft-phoenix-docs/install/) | Prerequisites, the Windows installer (interactive and silent) and the environment check. |
 | [Usage](https://merito-solutions.github.io/uft-phoenix-docs/usage/) | Both conversion paths — a local folder of tests or a whole ALM project — end to end. |
 | [Supported Versions](https://merito-solutions.github.io/uft-phoenix-docs/supported_versions/) | Supported Windows, UFT One and ALM versions, and exactly what converts. |
+| [Free Edition and Licensing](https://merito-solutions.github.io/uft-phoenix-docs/licensing/) | What the free edition converts, how test cases are counted, and how to install and check a license. |
 
 **Using the Console**
 
@@ -87,12 +92,12 @@ OpenText functional testing and quality management. Our consultants can lead
 a UFT migration end to end: planning, pilots, blocker remediation, rollout
 and team enablement.
 
-[Book a consultation](https://www.merito.com/book-consultation?utm_source=other&utm_medium=referral&utm_campaign=merito-uft-phoenix-vbs-to-python-utility-5100009) · [Get a quote](https://www.merito.com/get-a-quote?utm_source=other&utm_medium=referral&utm_campaign=merito-uft-phoenix-vbs-to-python-utility-5100009)
+[Book a consultation](https://www.merito.com/book-consultation?utm_source=other&utm_medium=referral&utm_campaign=merito-uft-phoenix-vbs-to-python-utility-5100009) · [Get a quote](https://www.merito.com/get-a-quote?utm_source=other&utm_medium=referral&utm_campaign=merito-uft-phoenix-vbs-to-python-utility-5100009) · [Request scoping](https://www.merito.com/solutions/uft-phoenix/scope?utm_source=other&utm_medium=referral&utm_campaign=merito-uft-phoenix-vbs-to-python-utility-5100009)
 
 ## About this repository
 
 This repository publishes the customer documentation for UFT Phoenix
-1.2.2. UFT Phoenix itself is proprietary software of Merito Solutions,
+1.3.0. UFT Phoenix itself is proprietary software of Merito Solutions,
 Inc., and its source code is not published here. The software is licensed
 under the agreement in [LICENSE](LICENSE), the same one the installer shows.
 The documentation is © Merito Solutions, Inc., all rights reserved — see

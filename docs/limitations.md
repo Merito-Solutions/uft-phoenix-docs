@@ -609,6 +609,54 @@ conversion rewrites both blocks.
 - UFT **API/Service tests** (C#-based) are inventoried and skipped;
   conversion coverage is GUI/script assets.
 
+## Free edition
+
+The free edition converts an ALM project, or the tests under the source
+folders of one filesystem run, of up to 100 test cases; the analysis has no
+limit. [licensing.md](licensing.md) has the rules. What to know before you
+plan:
+
+- **The count is taken before any exclusion.** Parking, *Path Exclusions*
+  and *Path Inclusions* narrow what a run converts, not the count, with one
+  exception on disk: tests under folders named `out`, `.git` or
+  `__pycache__`, which the default *Path Exclusions* leave out, count only
+  when the run's *Path Inclusions* and *Path Exclusions* keep them. On the
+  ALM path the count is always the whole project.
+- **API tests stored as GUI tests count.** ALM can store a UFT API test with
+  the GUI type `QUICKTEST_TEST`. Phoenix tells such a test apart only after
+  it downloads it, so it counts toward the limit, although Phoenix never
+  converts it.
+- **The count can be higher than *Assets in Scope*,** which leaves out
+  parked, excluded and API tests.
+- **Deleted tests never count, and never convert.** Tests inside a
+  `.TrashCan` or `Recycle Bin` folder, at any level within the ALM project or
+  below a run's source folders, are left out of the count, the analysis and
+  the conversion on both paths, and no option brings them back. On disk,
+  publishing still protects them: a test whose folder, or whose destination,
+  holds such a folder with a test in it is blocked until you move that
+  folder out ([usage.md](usage.md) § *Taking tests out of scope, and where
+  the drops are reported*).
+- **Over the limit, a Deep analysis keeps no builds.** It deletes each test's
+  converted build once it is checked and measured, so *Compare Converted
+  Output…* and anything else that reads `alm_aom_work\test_<id>_build\` needs
+  a license, or a project of up to 100 test cases.
+- **A pilot of a larger conversion needs a license too.** Whatever your
+  reason, test cases you copy or move out of a project or folder still count
+  toward any conversion of it, and separate runs on folders that share a
+  parent folder count as one conversion of that parent folder (license
+  agreement, section 2.g). Phoenix counts one run at a time and cannot see
+  that; the agreement still applies.
+- **A license is installed from the command line or by the installer.** The
+  Migration Console shows the edition but has no license field. A license
+  installed for one Windows user does not apply to another; install it with
+  `--all-users` to serve every user of the machine.
+- **A license that names ALM projects** lifts the limit for those projects
+  only, by the server names it lists; on disk Phoenix cannot tell where a
+  folder of tests came from, so a filesystem run accepts any valid license.
+- **Expiry is checked against this machine's clock.** There is no online
+  check, so the license applies through the end of its expiry day as this
+  machine counts it.
+
 ## Asset locks
 
 A lock never fails a conversion — **locked assets are converted and

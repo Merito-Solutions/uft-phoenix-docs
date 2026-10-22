@@ -20,7 +20,10 @@ complete inventory of those writes.
    missing/unresolvable resources — without launching UFT. At *Deep* depth
    (`--analysis-depth deep`, or the **Deep** radio on Step 5) it additionally
    AOM-builds each test locally in UFT to prove it converts, still uploading
-   nothing. Neither depth prints a list of the files that would be uploaded
+   nothing. For a project over the free edition's limit with no license that
+   covers it, a Deep analysis deletes each local build once it is checked and
+   measured ([licensing.md](licensing.md)); an analysis still makes zero ALM
+   writes. Neither depth prints a list of the files that would be uploaded
    or of the stale server files that would be deleted. On the CLI a dry run
    does not require `--confirm-alm-backup`; the GUI takes the backup
    confirmation earlier — the checkbox is on Step 3 and the ALM workflow will
@@ -283,7 +286,10 @@ carries the same lines.
 
 ALM conversion is whole-project (all or nothing). Pilot on a small,
 dedicated ALM project seeded with copies before running the production
-project:
+project. For a project of more than 100 test cases, install the license
+before the pilot: the free edition analyzes a project of any size, but
+converting any of its tests, in a pilot project of copies included, needs a
+license that covers the project ([licensing.md](licensing.md)).
 
 ```text
 1. uft-migrate doctor                         # environment green?
@@ -291,6 +297,7 @@ project:
 3. GUI: Analysis on the project (Step 5)      # the read-only dry run: scan report,
                                               # blockers; on version-controlled projects,
                                               # the Version Control & Locks chase list
+   → over 100 test cases: request scoping, install the license (licensing.md)
 4. GUI: Convert Project (Step 6), backup confirmed
                                               # always uploads in place, verified per test
    → run first against a small pilot project (copies), not production
@@ -350,6 +357,12 @@ one test instance per converted test, and then launches the runs.
   [troubleshooting.md](troubleshooting.md) § *Native crashes and interrupted
   ALM conversions* covers each refusal, and how to close a wave you do not
   want to continue.
+- **The free edition's limit never stops a wave already under way.** A new
+  wave over the limit is refused before it starts, with nothing written to
+  ALM (`license-limit`); once a wave has started, continuing it, rolling it
+  back and `restore` are never refused for the limit, even after a license
+  expired, and whichever version of Phoenix started the wave
+  ([licensing.md](licensing.md)).
 - **Before a continued wave converts anything**, it settles what the earlier
   attempt left. A test whose upload had started is compared with the copy this
   wave froze before changing it: identical, it is left alone; different, it is

@@ -55,6 +55,23 @@ The **Migration Console** walks you through a migration step by step. For
 automation and pipelines, everything is also available from the command
 line.
 
+## Free for conversions of up to 100 test cases
+
+The free edition of Phoenix converts an ALM project, or a folder of tests,
+that holds up to 100 UFT One GUI tests. Its analysis has no limit, so you can
+measure a project of any size, see what converts, and decide from there.
+
+A larger conversion needs a license from Merito. Request scoping, and we will
+size the migration with you. If you like, send us the scoping summary the
+analysis writes: it holds counts and summary figures, with no names, paths,
+identifiers or test code.
+
+[Request scoping](https://www.merito.com/solutions/uft-phoenix/scope?utm_source=other&utm_medium=referral&utm_campaign=merito-uft-phoenix-vbs-to-python-utility-5100009){ .md-button }
+
+A license is a file you install. Phoenix checks it on your own machine and
+never contacts Merito. [Free Edition and Licensing](licensing.md) explains how
+test cases are counted.
+
 ## Safety first
 
 Your test estate is valuable, so Phoenix is built to be careful with it:
@@ -69,8 +86,8 @@ Your test estate is valuable, so Phoenix is built to be careful with it:
   a backup of the project exists.
 - **History is kept.** On version-controlled ALM projects, each converted
   test gets a new version, and the original stays in version history.
-- **Fully offline.** Installation and conversion need no internet access,
-  and nothing leaves your network.
+- **Fully offline.** Installation, license checks and conversion need no
+  internet access, and nothing leaves your network.
 - **Support built in.** Phoenix keeps a diagnostics log all the time, so
   there is nothing to switch on first, and a recent problem can be collected
   after it happened. One click, or one Start Menu shortcut, builds a bundle
@@ -87,7 +104,9 @@ Phoenix follows a phased engagement, described in the
 
 1. **Readiness.** Check the conversion machine, UFT One and the ALM
    connection.
-2. **Discovery.** Analyze the estate and see what converts automatically.
+2. **Discovery.** Analyze your tests, see what converts automatically, and
+   count the test cases. A conversion of more than 100 is scoped and licensed
+   here.
 3. **Pilot.** Convert a representative sample and prove the results.
 4. **Hardening.** Resolve the blockers the pilot uncovers.
 5. **Migration window.** Convert, verify and sign off.
@@ -118,6 +137,7 @@ They are written for the engineers who run the migration.
 | [Installation](install.md) | Prerequisites, the Windows installer (interactive and silent) and the environment check. |
 | [Usage](usage.md) | Both conversion paths — a local folder of tests or a whole ALM project — end to end. |
 | [Supported Versions](supported_versions.md) | Supported Windows, UFT One and ALM versions, and exactly what converts. |
+| [Free Edition and Licensing](licensing.md) | What the free edition converts, how test cases are counted, and how to install and check a license. |
 
 **Using the Console**
 

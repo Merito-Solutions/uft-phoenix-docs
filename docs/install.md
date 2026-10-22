@@ -14,6 +14,12 @@ Three things to settle before you start:
   protection suites quarantine it without asking. Verify the published SHA256
   before you run it — see [Verify the download](#verify-the-download).
 
+Phoenix installs as the free edition. Its analysis runs at any size, for
+assessment only, and it converts an ALM project, or a filesystem run, of up
+to 100 test cases. A license file from Merito lifts the limit: see
+[Installing a license](#installing-a-license) and
+[licensing.md](licensing.md).
+
 If version 1.0.x is already on the machine it was installed **per-user**, to a
 different folder and under a different Apps & Features identity, so this
 installer does not replace it. It detects it and offers to remove it; see
@@ -53,7 +59,8 @@ pushes it out.
 
 1. Run `MeritoUFTPhoenix-<version>-Setup.exe` and accept the UAC prompt.
 2. Read and accept the license agreement on the **License Agreement** page.
-   Declining ends setup without installing anything, with exit code `2`.
+   Setup shows it on every install and upgrade. Declining ends setup without
+   installing anything, with exit code `2`.
 3. If a 1.0.x per-user installation is found, a **Previous version found** page
    lists what it found and offers to remove it, checked by default.
 4. Choose the install folder. The default is
@@ -86,12 +93,14 @@ support*). `LICENSE` and `THIRD-PARTY-NOTICES.txt` are installed beside it.
 
 Start the Migration Console: the bottom-left corner of the dark panel on the
 left, the one that lists the steps, reads *Version* and the version number on
-every step, and an installed copy shows the number alone (see
-[gui_field_guide.md](gui_field_guide.md) § *The version line*). Without the
-console, `uft-migrate --version` prints the same number, and
+every step, and an installed copy shows the number alone; the line under it
+names the edition, *Free edition · up to 100 tests* or the license in use
+(see [gui_field_guide.md](gui_field_guide.md) § *The version line*). Without
+the console, `uft-migrate --version` prints the same number, and
 `uft-migrate doctor` names it on its second line with the commit the build
-sealed (see [Verify the environment](#verify-the-environment)).
-`VERSION.txt`, above, records the exact build.
+sealed, and the edition in its `license` row (see [Verify the
+environment](#verify-the-environment)). `VERSION.txt`, above, records the
+exact build.
 
 ### Silent install
 
@@ -114,31 +123,34 @@ MeritoUFTPhoenix-<version>-Setup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /A
 | `/VERYSILENT` | No wizard and no progress window. |
 | `/SUPPRESSMSGBOXES` | Suppress the message boxes a silent run can still raise. Without it, an error box can hang a deployment on a machine nobody is watching. |
 | `/NORESTART` | Never restart the machine on setup's own initiative. Nothing this installer does is expected to need a restart — it unpacks files and sets the machine PATH — but pass it anyway so an unattended deployment can never reboot a machine out from under whoever is using it. |
-| `/ACCEPTEULA` | Accepts the agreement in `LICENSE` without prompting; the acceptance is recorded in `<install folder>\eula_accepted.txt`. **Required for a silent install** — a silent run without it installs nothing and exits `2`. Deploying with it constitutes acceptance by your organization. |
+| `/ACCEPTEULA` | Accepts the agreement in `LICENSE` without prompting; the acceptance is recorded in `<install folder>\eula_accepted.txt`. **Required for a silent install** — a silent run without it installs nothing and exits `2`. Deploying with it constitutes acceptance by your organization. Accepting it does not change a signed order form or statement of work with Merito; where they differ, the signed document prevails. |
 | `/DIR="<path>"` | Install somewhere other than `C:\Program Files (x86)\Merito\UFT Phoenix`. |
 | `/MERGETASKS="..."` | Task selection, merged with the defaults in the table above: name a task to select it, prefix it with `!` to clear it. The task names are `startmenu`, `desktopicon` and `addtopath`. |
 | `/LOG="<path>"` | Write a verbose install log. Worth setting: the log is where a silent run reports the legacy 1.0.x installations it found but could not remove. |
 | `/RUNDOCTOR` | Run the environment preflight after installing and record its findings. It does **not** change the installer's exit code; to gate a deployment on a ready machine, run doctor as a separate step (below). |
 | `/REMOVELEGACY=no` | Leave any 1.0.x per-user installation in place. The default is `yes`, remove it. |
+| `/LICENSEFILE="<path>"` | Install the Merito license file at `<path>` for every user of the machine, once the files are copied and the installed product has passed its self-test (see [Installing a license](#installing-a-license)). A relative path is read from the folder Setup is in. A path that names no file, or a file that is not there, stops Setup before anything is installed, with exit code `2`. A file Phoenix refuses leaves the product installed and makes Setup exit `10`. Write it with the `=`: `/LICENSEFILE "<path>"` is refused with exit code `2` too. |
 
 #### Exit codes
 
-These are Inno Setup's codes, **not** the `0`/`1`/`2` set that 1.0.x returned.
-Only `0` is success; every other code means the product is not installed.
-Re-check any deployment that maps codes to success or failure before you roll
-this out.
+These are Inno Setup's codes, **not** the `0`/`1`/`2` set that 1.0.x returned,
+plus one of Phoenix's own, `10`. Only `0` is complete success; `10` means the
+product is installed without its license file; every other code means the
+product is not installed. Re-check any deployment that maps codes to success
+or failure before you roll this out.
 
 | Code | Meaning |
 | --- | --- |
 | `0` | Success. |
 | `1` | Setup failed to initialise. |
-| `2` | Cancelled before the install started: the license was declined, the wizard was cancelled, or a silent run omitted `/ACCEPTEULA`. |
+| `2` | Cancelled before the install started: the license agreement was declined, the wizard was cancelled, a silent run omitted `/ACCEPTEULA`, or `/LICENSEFILE` named no file, a file that is not there, or was written without its `=`. |
 | `3` | Fatal error while preparing to install. |
 | `4` | Fatal error during the install — including a failed post-install verification, which rolls the installation back. |
 | `5` | Cancelled during the install, or *Abort* at an Abort-Retry-Ignore prompt. |
 | `6` | Setup was forcibly terminated. |
 | `7` | Setup determined it cannot proceed while preparing to install. |
 | `8` | Setup determined it cannot proceed until the machine is restarted. Restart, then run it again — this is a code to retry, not a success. |
+| `10` | The product is installed, but the license file named with `/LICENSEFILE` was not. If a license was installed earlier, it still applies. If not, the free edition is active. The log says why the file was not installed. Not worth a retry: the same file is refused again. Fix the file, then install it as [Installing a license](#installing-a-license) shows. |
 
 To gate a deployment on a ready machine rather than a successful copy, run the
 environment check as its own step and read *its* exit code (`1` = at least one
@@ -151,6 +163,63 @@ check failed):
 Use the full path — the process that ran the installer does not see the new
 PATH entry — and run it from a writable folder, because `doctor` also checks
 that it can write `out\` under the folder it starts in.
+
+### Installing a license
+
+**Setup installs Phoenix even when the license file cannot be installed;
+it then exits with code `10`.** Phoenix installs as the free edition: its
+analysis runs at any size, and it converts an ALM project, or a filesystem
+run, of up to 100 test cases ([licensing.md](licensing.md)). A license file
+from Merito lifts the limit. Phoenix reads license files from two folders:
+`<install folder>\licenses\`, for every user of the machine, and
+`%LOCALAPPDATA%\Merito\UFT Phoenix\licenses\`, for one user. The Migration
+Console has no license field.
+
+To deploy a license with the product, name it with `/LICENSEFILE=`, and pass
+`/LOG` so the log records what happened to it:
+
+```
+MeritoUFTPhoenix-<version>-Setup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /ACCEPTEULA /LICENSEFILE="C:\Deploy\PHX-20261012-3F9A2C.license.json" /LOG="C:\Windows\Temp\phoenix-install.log"
+```
+
+Once the files are copied and the installed product has passed its
+self-test, Setup installs the license for every user of the machine, with the
+product's own `uft-migrate license install "<path>" --all-users`, and writes
+that command's output to the log. It does this before `/RUNDOCTOR`, so
+doctor's `license` row reports the outcome.
+
+- A license that installs is in force at once, and the log says
+  `license: installed for all users from` and the path.
+- A file Phoenix refuses — changed or not issued by Merito, expired, or for a
+  newer Phoenix — leaves the product installed and makes Setup exit `10`. The
+  log says why, then *If a license was installed earlier, it still applies.
+  If not, the free edition is active.* Without `/SUPPRESSMSGBOXES` a message
+  box says the same. Do not retry: the same file is refused again. Fix the
+  file, then install it as below.
+- A path that names no file, or a file that is not there, and the switch
+  written without its `=` (`/LICENSEFILE "<path>"`, `/LICENSEFILE:<path>`),
+  stop Setup before anything is installed, with exit code `2`.
+
+Give the full path to a file the account Setup runs as can read — under SCCM
+or Intune, the computer's SYSTEM account — or a path relative to the folder
+Setup is in, so a deployment package can carry the license file beside the
+installer.
+
+To install a license afterwards, or for one user only, run the command
+yourself and read its exit code: `0` when the license is installed, `2` when
+it refused the file and installed nothing. For every user, from a Command
+Prompt opened with **Run as administrator**:
+
+```
+"C:\Program Files (x86)\Merito\UFT Phoenix\bin\uft-migrate.cmd" license install "C:\Deploy\PHX-20261012-3F9A2C.license.json" --all-users
+```
+
+Leave out `--all-users` to install it for yourself only, with no
+administrator rights. Afterwards `uft-migrate license`, `doctor`'s `license`
+row and the Migration Console's version line name the license. An upgrade
+keeps installed licenses, and so does uninstalling; to remove one, run
+`uft-migrate license remove <license id> --all-users` from an administrator
+prompt ([usage.md](usage.md) § *Installing a license*).
 
 ### Removing a 1.0.x per-user installation
 
@@ -195,7 +264,9 @@ a second copy in the default location and leaves the first one behind.
 
 Anything of your own under `runtime\`, `bin\` or `docs\` goes with the
 upgrade. Keep nothing of your own there; run folders belong under the folder
-you launch Phoenix from.
+you launch Phoenix from. Installed licenses are kept: they live in
+`licenses\`, which an upgrade does not touch, and in each user's
+`%LOCALAPPDATA%\Merito\UFT Phoenix\licenses\`.
 
 ## Where to launch Phoenix from
 
@@ -227,11 +298,21 @@ uft-migrate doctor
 the UFT One installation and its **IronPython runtime completeness** (some UFT
 installs ship the Python engine missing DLLs or the standard library — doctor
 names exactly what to copy where; see
-[troubleshooting.md](troubleshooting.md)), the ALM client registration, and
-write access to `out\` under the folder you run it from, or to the folder
-given with `--output-root`. Add `--alm-url`/`--username` to test a live ALM
-login, with the password in the `UFT_MIGRATE_ALM_PASSWORD` environment
-variable.
+[troubleshooting.md](troubleshooting.md)), the ALM client registration, the
+license in use, and write access to `out\` under the folder you run it from,
+or to the folder given with `--output-root`. Add `--alm-url`/`--username` to
+test a live ALM login, with the password in the `UFT_MIGRATE_ALM_PASSWORD`
+environment variable.
+
+Its `license` row names the edition: *Free edition · up to 100 tests* with
+*No license file is installed.*, or the license in use with its id, its expiry
+and the ALM projects it covers. It never fails. It warns when, in the free
+edition, an installed license file cannot be used, saying why; when the
+license in use expires within 30 days; and when Phoenix's own license key is
+damaged, which reinstalling Phoenix repairs. With a license in use, a file
+that cannot be used does not make the row warn: the row names it after
+*Other license files:* ([licensing.md](licensing.md) § *Checking the
+edition*).
 
 Two results are expected rather than problems: the ALM client row is a
 `[WARN]` when the client is not installed, which is fine if you only convert
@@ -260,7 +341,15 @@ generated uninstaller accepts `/VERYSILENT /SUPPRESSMSGBOXES /NORESTART`.
 Uninstalling removes the install folder, the Start Menu shortcuts (*Merito
 UFT Phoenix Collect Diagnostics* among them) and the desktop shortcut, the
 machine PATH entry, the recorded license acceptance and the Apps &
-Features entry. It does **not** remove your run output — `out\` folders live
+Features entry — except for installed license files. A license is a paid
+entitlement, and uninstalling and reinstalling is a standard repair, so
+`<install folder>\licenses\` is kept, and with it the install folder, while a
+license file is in it; each user's `%LOCALAPPDATA%\Merito\UFT Phoenix\licenses\`
+stays too. To remove a license, run
+`uft-migrate license remove <license id> --all-users` from an administrator
+prompt before you uninstall.
+
+Uninstalling does **not** remove your run output — `out\` folders live
 under whatever folder each user launched Phoenix from — and it does not touch
 UFT One or the ALM client. The Migration Console keeps its saved settings in
 that same `out\` folder (`.uft-migrate-gui-cache.json`), including any ALM

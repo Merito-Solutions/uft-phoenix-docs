@@ -24,6 +24,9 @@ groups:
       - file: supported_versions.md
         title: Supported Versions
         description: Supported Windows, UFT One and ALM versions, and exactly what converts.
+      - file: licensing.md
+        title: Free Edition and Licensing
+        description: What the free edition converts, how test cases are counted, and how to install and check a license.
 
   - title: Using the Console
     pages:

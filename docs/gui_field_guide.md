@@ -74,16 +74,36 @@ same *Diagnostics Saved*.
 ## The version line
 
 The bottom-left corner of the dark panel on the left, the one that lists the
-steps, names the version of Phoenix you are running: *Version* and the version
-number, the same number `uft-migrate --version` prints. It is the panel's last
-line on every step, Step 1 included, and stays at the bottom at any window
-size. Quote it when you contact Merito support; a diagnostics bundle records
-it for you.
+steps, names the version of Phoenix you are running and its edition, on two
+lines. The first reads *Version* and the version number, the same number
+`uft-migrate --version` prints. The second names the edition: *Free edition ·
+up to 100 tests*, or, with a license installed, *Licensed to* and the
+organization the license names, then its limit — *Licensed to Contoso Ltd ·
+up to 500 tests*, or *· no test limit* (a long name is cut short). A license
+that names ALM projects adds them, each as domain/project — *Licensed to
+Contoso Ltd · up to 500 tests · SALES/CRM and SALES/ERP*. The line names two
+at most and counts the rest — *SALES/CRM, SALES/ERP +2 more* — and resting
+the pointer on it shows the whole label, every project and the full name
+included; `uft-migrate license`, `doctor` and the reports always list them
+all. They are
+the panel's last lines on every step, Step 1 included, and stay at the bottom
+at any window size. Quote them when you contact Merito support; a diagnostics
+bundle records them for you.
 
-An installed copy shows the number alone. A line that ends *· development
-copy* means this console is not running from an installed package — from a
-copy of the source code, for example — so the number names the last build,
-not necessarily the code that is running. Say so when you quote it.
+The edition is shown here, never set: the console has no license field. A
+license is installed with `uft-migrate license install` or by the installer
+([licensing.md](licensing.md)). The console reads the installed licenses
+again when you enter Step 5, at **Next** and when you start a conversion, so a
+license installed while it is open shows here by the next of those. On the
+Upgrade ALM Project workflow the line names the edition for the project you
+chose: a license that names other ALM projects leaves it reading *Free
+edition · up to 100 tests*.
+
+On an installed copy the first line is the number alone. A first line that
+ends *· development copy* means this console is not running from an installed
+package — from a copy of the source code, for example — so the number names
+the last build, not necessarily the code that is running. Say so when you
+quote it.
 
 ---
 
@@ -96,6 +116,15 @@ consultation** is not on this screen: it lives in the step header card
 ("Need Merito Professional Services to lead the migration?"), which is hidden
 on Step 1 and shown on Steps 2–6, and it opens a different page,
 merito.com/book-consultation. Nothing on this screen affects the migration.
+
+**Get Quote** is about OpenText licenses and renewals and Merito's services.
+It has nothing to do with the UFT Phoenix license that lifts the free
+edition's limit of 100 test cases, which has no control anywhere in the
+console ([licensing.md](licensing.md)). When an analysis counts more test
+cases than your edition converts, the step header card on Steps 2–6 names the
+count instead — *101 test cases, over the free edition limit of 100.* — and
+its button reads **Scope this conversion with Merito**, which opens Merito's
+consultation request form (see *Over the free-edition limit* under Step 5).
 
 ---
 
@@ -121,9 +150,14 @@ stay in their own tests and are consumed by reference.
 The **Flow preview** text under the choices summarizes the steps ahead for
 the selected workflow.
 
-*Example:* to pilot before committing an estate, use **UFT FileSystem**
+*Example:* to pilot before committing a conversion, use **UFT FileSystem**
 against a copy of representative tests, or stand up a dedicated pilot ALM
 project seeded with copies and run **Upgrade ALM Project** against it.
+When the tests you are piloting come from an ALM project or folder of more
+than 100 test cases, the pilot needs a license too: whatever your reason,
+test cases you copy or move out of an ALM project or folder still count
+toward any conversion of that project or folder (license agreement, section
+2.g; see [licensing.md](licensing.md)).
 
 ---
 
@@ -324,7 +358,9 @@ pre-seeded into the box and re-merged on every run, so they hold whatever else
 you type. On the **UFT FileSystem** workflow the defaults `**/.git/**`,
 `**/out/**` and `**/__pycache__/**` apply only while the box is empty — the
 moment you type a pattern the box *replaces* them rather than adding to them,
-so re-add any of the three you still want.
+so re-add any of the three you still want. Replaced, they no longer keep the
+tests under those folders out of the free edition's test-case count either
+([licensing.md](licensing.md)).
 *Example:* exclude `**/Archive/**` to skip a graveyard folder.
 
 **Path Inclusions (one pattern per line)** *(UFT FileSystem workflow)* —
@@ -365,7 +401,9 @@ blockers are recorded, so a rule can never clear a blocker.
 **Convert Mode** — `new` writes converted output under the Output Root,
 leaving sources untouched (default; always start here). `in-place` converts
 inside the source tree — only for version-controlled sources where rollback
-is `git revert`.
+is `git revert`. The analysis on Step 5 assesses the conversion in the mode
+chosen here, so it counts the test cases that conversion counts; changing
+Convert Mode after an analysis makes it **STALE**.
 
 **Overwrite Policy** — what happens when output already exists: `fail`
 (stop rather than touch existing output), `backup` (set the existing output
@@ -523,7 +561,10 @@ instead. The sidebar's three cards say the same things in words: **Workflow**
 (which migration flow you are on), **Approval State** (the verdict as a
 sentence, "Analysis needs attention…" for a run that failed) and **Context**.
 A card is shown only where it fits whole, so a short window shows fewer of
-them; make the window taller to see the rest.
+them; make the window taller to see the rest. When the analysis counted more
+test cases than your edition converts, the verdict word stays GO or NO-GO,
+the card's line reads *Scoping required:* and the count, and Approval State
+says the same (see *Over the free-edition limit* below).
 
 **Analysis Run ID** — folder name for this analysis under `out/` in the
 directory Phoenix was launched from (the run folder is always there; the
@@ -558,7 +599,8 @@ Three things follow from this one field:
 **Overwrite previous analysis outputs in this run folder** — checked (the
 default every time the console starts), the run first deletes these files from
 the run folder: `scan_report.html`, `.md` and `.json`, `dependency_graph.json`,
-`file_manifest.txt`, `analysis_cli_output.log`, `conversion_summary.json`,
+`file_manifest.txt`, `analysis_cli_output.log`, `scoping_summary.html` and
+`scoping_summary.json`, `conversion_summary.json`,
 `observability_metrics.json` and `migration_log.txt`. Unchecked, they are left
 in place.
 
@@ -599,18 +641,24 @@ lines, lines needing parentheses added for Python calls, VBScript intrinsic
 replacements, descriptive-programming lines split static vs dynamic), per
 asset and overall. Use it as the per-construct evidence behind a go
 decision. The filesystem path's analysis has no depth choice and always
-includes the breakdown.
+includes the breakdown. Over the free edition's limit, with no license that
+covers the project, a Deep analysis still builds and measures every test —
+the Technical Conversion Breakdown included — but deletes each test's
+converted build once it is checked and measured, so *Compare Converted
+Output…* has no build to open (see *Over the free-edition limit* below).
 
 **Out-of-scope test IDs** *(ALM)* — the parking field: ALM test IDs listed
 here (comma-, space-, or newline-separated; text after `#` is ignored) leave
 the scope entirely for this wave — not analyzed, not converted, not counted
 as failures, left untouched in ALM. Fill it from the report's **Park the
-Failed Assets** list (see *Parking failed assets* below).
+Failed Assets** list (see *Parking failed assets* below). Parked tests still
+count toward the free edition's limit of 100 test cases.
 
 **Out-of-scope tests** *(filesystem)* — the same parking idea for on-disk
 tests: one entry per line (or comma-separated) — a test folder name, a
 path, or a glob (e.g. `*Debug*`). Listed tests are skipped this wave and
-their files left untouched on disk.
+their files left untouched on disk. They still count toward the free
+edition's limit.
 
 **Run Analysis** — executes the scan: discovers tests, inventories every
 blocker/warning per file, builds the dependency graph, and produces the
@@ -630,7 +678,14 @@ What happens next depends on the verdict and the workflow:
   missing a linked function library, has an unresolvable cross-test callee, or
   produces Python that cannot be parsed — at any strictness — and, under
   `strict`, if its converted body carries a converter blocker. Refused tests
-  are named in the conversion report.
+  are named in the conversion report. The one check a filesystem conversion
+  makes before it starts is the free edition's test-case limit (next).
+- **Either workflow, over the free-edition limit.** When the analysis counts
+  more test cases than your edition converts, it still finishes and the
+  go/no-go verdict stands; *Scoping required* appears beside it, **Next**
+  stops with *Scoping Required*, and **Run Conversion** / **Convert Project**
+  refuse first, before every other check, with *Conversion Blocked — Scoping
+  Required*. See *Over the free-edition limit* below.
 - **Either workflow.** An empty scope stops the conversion with *Conversion
   Blocked — Nothing In Scope*.
 
@@ -676,6 +731,13 @@ Diagnostics (bottom left). Nothing is sent automatically.* instead. So does the
 status line of a failed analysis, and of an analysis or conversion that could
 not start, which have no dialog.
 
+A conversion the command line refused over the free edition's limit is not a
+failure either. Its dialog is *Conversion Blocked — Scoping Required*: the
+command line's own message in full, then how test cases are counted and where
+to scope a license. It asks nothing, because nothing went wrong that support
+could fix, and the status line reads *Conversion refused: scoping required*
+with the count, *Nothing was converted.* and the run folder.
+
 **Re-analyze Failed Assets** — after fixing source scripts, re-scans only
 the assets that failed, under the same Analysis Run ID. Much faster than a
 full re-scan of a large estate. Works on both migration paths and, for ALM,
@@ -684,21 +746,42 @@ the re-analyzed assets get their new result, and every asset that already
 passed keeps the result from the previous analysis of that Run ID (on the ALM
 path, the report states how many of each). "Overwrite previous analysis
 outputs" does not apply to this action — a failed-only refresh builds on the
-previous run.
+previous run. On the ALM path a test you removed from *Out-of-scope test IDs*
+since the previous analysis is analyzed by the refresh as well, and the
+report's refresh note counts it apart from the failed ones. The hint under
+the button names those tests. With nothing failed, **Re-analyze Failed
+Assets** is enabled for them alone. If the previous analysis measured no
+assets, the button stays disabled and its hint says to run a full analysis
+instead.
 
 If you park every remaining failed asset instead of fixing them (see *Parking
-failed assets* below), this button becomes **Refresh Report (N parked)** the
-next time Step 5 refreshes — when you leave and return to the step, for
-example. The label does not change while you are pasting, but the button
+failed assets* below), this button becomes **Refresh Report (N parked)**
+about 0.3 seconds after you stop typing or pasting in *Out-of-scope test IDs*
+(the button and its hint follow the field as you edit it), and the button
 always acts on the IDs currently in the field. There is nothing left to
 re-measure, so the run just rewrites the report over the assets that remain in
-scope; that needs no ALM work and is near-instant. Park only some of them and
-the button stays **Re-analyze Failed Assets (M)** and re-measures the rest.
+scope; that needs no ALM work and is near-instant — unless you also removed an
+ID from the field since the previous analysis, whose test the refresh then
+analyzes. Park only some of them and the button stays **Re-analyze Failed
+Assets (M)** and re-measures the rest.
 
 **Cancel** — stops the running analysis (the whole process tree). On the UFT
 FileSystem workflow, re-running with the same Analysis Run ID offers to resume
 and skips the files already scanned. An ALM analysis cannot pick up where it
 stopped: re-running it analyzes every asset again, even if you choose Resume.
+
+**Open Scoping Summary** — on a line of its own under **Run Analysis**,
+**Re-analyze Failed Assets** and **Cancel**. It opens the last analysis's
+scoping summary, `scoping_summary.html` in the run folder, in your browser,
+and is available once an analysis wrote one; every analysis does, on both
+workflows. The summary gives the test cases counted, the limit and the
+edition, the tests by type and by scope, how many passed the analysis, the
+blockers by category and the cross-test chains — counts and summary
+figures, with no names, paths, identifiers or test code. Send it to Merito if
+you want a migration over your edition's limit scoped; sending it is your
+choice
+([licensing.md](licensing.md) § *The scoping summary and the consultation
+request form*).
 
 **Analysis Reports** — links to the run folder's artifacts: Scan
 HTML/Markdown/JSON, Dependency Graph JSON, File Manifest and the raw CLI
@@ -707,7 +790,9 @@ Summary, Migration Log and Observability Metrics. Those last three stay blank
 on a UFT FileSystem analysis, which does not write them. They are cleared when
 a run starts and filled in when it finishes (and whenever you return to Step
 5); they do not light up file by file. Start with **Scan HTML** — it carries
-the go/no-go verdict and per-file drill-down.
+the go/no-go verdict and per-file drill-down, names the edition at the top,
+and, over the free edition's limit, carries the *Scoping required* notice with
+links to the scoping summary and to Merito's consultation request form.
 
 **CLI Output** — the engine output for this analysis, shown when the analysis
 finishes and kept on screen for troubleshooting.
@@ -822,6 +907,53 @@ from the conversion narrative (see
 [usage.md](usage.md#taking-tests-out-of-scope-and-where-the-drops-are-reported)),
 which names every test the wave dropped and the pattern that dropped it.
 
+### Over the free-edition limit
+
+The free edition converts up to 100 test cases per conversion: an ALM
+project, or the tests under the source folders of one filesystem run.
+[licensing.md](licensing.md) explains how they are counted. The analysis runs
+at any size. When it counts more test cases than your edition converts, and
+no installed license covers them:
+
+- **The verdict does not change.** GO or NO-GO says whether the tests are fit
+  to convert, not whether the free edition may convert them, so a clean
+  project still reads **GO**. The card's line reads *Scoping required:* and
+  the count — *Scoping required: 150 test cases, over the free edition limit
+  of 100.* — and **Approval State** says the same, then *Use the results for
+  assessment only.*
+- **The status line and the reports carry the full notice.** The status line
+  under the controls ends with it, and the analysis report shows it under
+  *Scoping required*: the count, the limit, that the results are for
+  assessment only until a license covers the conversion, Merito's
+  consultation request form, and the scoping summary.
+- **Parking does not help.** The count is taken before *Out-of-scope test
+  IDs*, *Out-of-scope tests*, *Path Exclusions* and *Path Inclusions*, so none
+  of them lowers it.
+- **A Deep analysis keeps its measurements, not its builds.** Each test's
+  converted build is deleted once it is checked and measured.
+- **The step header card offers the consultation request form.** On Steps
+  2–6 it names the count, and its button **Scope this conversion with
+  Merito** opens Merito's consultation request form in your browser.
+- **Next stops with *Scoping Required*.** The dialog gives the notice, then
+  any installed license Phoenix did not use and why, under *UFT Phoenix did
+  not use the installed license:*, then *How test cases are counted:* and
+  the counting rule. Step 6 cannot be opened, unless the run folder holds
+  a conversion that is still under way — an open ALM conversion wave or an
+  interrupted run — which Step 6 then continues.
+
+To go on, press **Open Scoping Summary** and **Scope this conversion with
+Merito**, and install the license Merito sends you ([licensing.md](licensing.md)
+§ *Installing a license*). You do not have to run the analysis again: the
+console reads the installed licenses again at **Next**, and the version line
+names the license. Only the reports this analysis wrote keep its *Scoping
+required* notice, until the next analysis.
+
+If you have a license and still see *Scoping Required*, read the dialog's
+*UFT Phoenix did not use the installed license:* lines, or run
+`uft-migrate license`: a license that expired, that names other ALM projects
+than this one, or that is installed for another Windows user only does not
+apply here.
+
 ---
 
 ## Step 6 — Review and Run
@@ -840,6 +972,23 @@ upload → verify (with version-control checkout/check-in handled automatically
 per asset). On the Upgrade ALM Project workflow the progress bar shows
 per-asset progress read live from the engine; on UFT FileSystem it only shows
 that the run is active, and the outcome appears when the run finishes.
+
+Over the free edition's limit, with no installed license that covers the
+conversion, the button refuses first, before any other check, with
+*Conversion Blocked — Scoping Required*, and nothing starts. The button never
+refuses a conversion the run folder already holds — an open ALM conversion
+wave, or an interrupted run: it continues it or rolls it back, and the
+command line decides what that conversion may still do. The command line also
+counts the test cases again when a conversion starts, so the same conversion
+started anywhere else, from the **Review Command** text for example, is
+refused too: it ends with status `license-limit` and converts nothing. When
+the command line refuses a conversion the console let through — a license
+that expired meanwhile, say — the console shows the same dialog, with the
+command line's message in full. On UFT FileSystem, an interrupted run whose
+source folders have since gained test cases, beyond what your edition
+converts, is refused that way only after it has rescanned them, so Step 5's
+reports and scoping summary are new, and the run can no longer be resumed
+([usage.md](usage.md) § *The free-edition limit*).
 
 An ALM conversion runs under a crash supervisor. If Windows ends the conversion
 process (a native crash), the supervisor records the crash, cleans up and
@@ -981,13 +1130,17 @@ finishes. Both paths produce the **Executive Summary** (HTML / Markdown / JSON
 2. Pilot first on a small representative set — **UFT FileSystem** against a
    copy of tests, or a dedicated pilot ALM project seeded with copies (ALM
    conversion is whole-project, so you cannot target a subset of the
-   production project).
+   production project). When the tests come from a project or folder of more
+   than 100 test cases, the pilot needs a license too
+   ([licensing.md](licensing.md)).
 3. Step 3: Connect, pick domain/project, and tick the backup confirmation
    (Next is blocked without it). Leave the other defaults.
 4. Step 5: **Run Analysis** — this is the read-only dry run (zero ALM
    writes). Read the Scan HTML, including the **Version Control & Locks**
    chase list on version-controlled projects; fix or map blockers; re-analyze
-   failed assets; park anything you are deferring.
+   failed assets; park anything you are deferring. If it counts more than 100
+   test cases and no license covers them, press **Open Scoping Summary**,
+   request scoping, and install the license before Step 6 (Convert Project).
 5. Step 6: **Convert Project** — ALM conversion always uploads in place,
    verified per test.
 6. Once the pilot is at parity, run **Upgrade ALM Project** against the full

@@ -11,7 +11,8 @@ runtime, the ALM client, and output-folder write access — and can test a live
 ALM login with `--alm-url`/`--username` (password via the
 `UFT_MIGRATE_ALM_PASSWORD` environment variable). An `offline-package` row
 marked `[ -- ]` is normal on an installed copy: that check is for whoever builds
-the package, not for you.
+the package, not for you. Its `license` row names the edition in use: the free
+edition, or your installed license.
 
 ---
 
@@ -56,6 +57,72 @@ missing files from the NuGet packages **IronPython 3.4.1**, **IronPython.StdLib
 3.4.1**, and **DynamicLanguageRuntime 1.3.4** into the folder that contains
 `IronPython.dll`, then re-run `doctor`. An upgrade from 26.1 to 26.3 leaves
 files you copied in place, so a machine repaired on 26.1 stays repaired.
+
+### `uft-migrate license install` refuses the license file
+Nothing was installed, and the edition did not change. The command printed
+`License not installed:` and the reason, and exited 2:
+
+- *… was changed after Merito issued it, or Merito did not issue it. UFT
+  Phoenix ignores it.* — the file's details no longer match Merito's
+  signature. Install the file exactly as Merito sent it; if something in it
+  must change, ask Merito for a new file.
+- *license … expired on* and the date — ask your Merito contact for a renewed
+  file.
+- *… needs a newer version of UFT Phoenix.* — Merito issued it for a later
+  release: upgrade Phoenix, then install it.
+- *… is not a UFT Phoenix license file.*, *… is not a valid license: …* or
+  *… is larger than 64 KB, so it is not a UFT Phoenix license.* — the file is
+  not the one Merito sent, or was damaged on the way. Ask for it again.
+- *installing for all users needs administrator rights.* — `--all-users`
+  writes to the install folder: run the command from a Command Prompt opened
+  with **Run as administrator**, or leave out `--all-users` to install the
+  license for yourself only.
+- *… does not exist.* — check the path; put it in quotes when it holds a
+  space.
+
+A license that installs but does not apply to a conversion — one that names
+other ALM projects, say — is not refused here; see *Conversion refused: over
+the free edition's limit* below.
+
+### Setup exited with code 10
+The product is installed, but the license file named with `/LICENSEFILE=` was
+not. Setup's log says why, in its `license:` lines — the same reasons as the
+entry above — and then *If a license was installed earlier, it still applies.
+If not, the free edition is active.* Running Setup again with the same file
+fails the same way. Fix the file, then install it for every user from a
+Command Prompt opened with **Run as administrator**:
+
+```
+uft-migrate license install "C:\Deploy\PHX-20261012-3F9A2C.license.json" --all-users
+```
+
+([install.md](install.md) § *Installing a license*). Exit code `2` instead
+means Setup stopped before installing anything: `/LICENSEFILE=` named no file,
+a file that is not there, or was written without its `=`.
+
+### `doctor`'s `license` row reads `[WARN]`
+The row never fails a check, and the free edition still converts up to 100
+test cases. It warns in three cases:
+
+- **No installed license file can be used (free edition).** The row names
+  the first one and why — expired, changed, for a newer Phoenix — and counts
+  the rest; `uft-migrate license` lists them all. An expired one reads *The
+  UFT Phoenix License File for* the licensee *expired on* the date, *The free
+  edition now applies, covering conversions of up to 100 test cases.* Its
+  `fix:` line asks you
+  for a valid license file from Merito, installed with
+  `uft-migrate license install`. Remove a file you no longer need with
+  `uft-migrate license remove <license id>`. With a license in use, a file
+  that cannot be used does not make the row warn: the row names it after
+  *Other license files:*.
+- **The license in use expires within 30 days.** Its fix line says when, and
+  what applies after that date: the free edition, or another installed
+  license that outlives it. Ask Merito to renew it before then.
+- **Phoenix's own license key is damaged.** The row says *Built-in license
+  key … is damaged.*, or *This copy of UFT Phoenix has no usable license key,
+  so it accepts no license.*, and its fix line says *Reinstall UFT Phoenix.*
+  Until you do, a license file signed with that key is refused as though
+  Merito had not issued it, so asking Merito for another file would not help.
 
 ---
 
@@ -194,6 +261,59 @@ an ALM permission, not a Phoenix problem.
 ---
 
 ## Conversion problems
+
+### Conversion refused: over the free edition's limit (`license-limit`)
+The conversion has more test cases than your edition converts — more than 100
+in the free edition — and no installed license covers it, so no test was
+converted, backed up or changed, and nothing was written to ALM. Phoenix
+updated only its own run files and logs (on ALM it also signed in and read
+the Test Plan, to count the test cases). The Migration
+Console says *Scoping required* at Step 5, and **Next** stops with *Scoping
+Required*; **Run Conversion** or **Convert Project** stops with *Conversion
+Blocked — Scoping Required*. The command line prints
+`"status": "license-limit"`, and a message that begins *Conversion refused.
+No test was converted, backed up or changed.*, and exits 2.
+
+1. **Check the count.** The `licensing` block in the command's output, and
+   in the analysis's `scan_report.json`, gives `test_cases` and the `limit`
+   that applied; the scoping summary shows the same. The count covers the
+   whole ALM project, or every test under the run's source folders, before
+   any test is parked or excluded, so parking tests or adding *Path
+   Exclusions* does not lower it ([licensing.md](licensing.md) § *How test
+   cases are counted*). The one exception is on disk: tests under folders
+   named `out`, `.git` or `__pycache__`, which the default *Path Exclusions*
+   leave out, count only when the run's *Path Inclusions* and *Path
+   Exclusions* keep them. The count can be higher than *Assets in Scope*. On
+   disk, also check for copies the count does not recognize as Phoenix's
+   own: an old `<name>.bak` backup whose converted test was moved or deleted
+   counts as a test of its own. Move it out of the run's source folders — it
+   may be your only copy of the original VBScript test — or delete it only if
+   you are sure you have another copy.
+2. **Without a license:** press **Open Scoping Summary** on Step 5, and
+   request a consultation on Merito's consultation request form, which the
+   message names. Install the license Merito sends
+   ([licensing.md](licensing.md) § *Installing a license*); you do not have
+   to run the analysis again.
+3. **With a license:** read why it did not apply. In the free edition, the
+   console's dialog lists each unused license under *UFT Phoenix did not use
+   the installed license:*, the command line puts the first reason in its
+   message and all of them in `license_problems`, and `uft-migrate license`
+   lists every license file with its reason. A license applies only while it
+   has not expired; to the ALM projects it names, by the server name it lists
+   (reached by another name, a server is another server: ask Merito to add the
+   name you use); and to the Windows user it was installed for, unless it was
+   installed for all users. Over a license's own limit, ask Merito for a
+   larger license.
+
+The limit never stops you finishing, rolling back or restoring a conversion
+that is already under way, and the analysis runs at any size. One exception
+is an interrupted filesystem conversion whose source folders have since
+gained test cases beyond what your edition converts: it is refused
+after it has rescanned them, and it can no longer be resumed, so run it
+again without `--resume` once the count is within the limit
+([usage.md](usage.md) § *The free-edition limit*). An ALM refusal leaves the
+analysis in the run folder as it was, so Step 5 keeps its reports and
+**Convert Project** works once a license is installed.
 
 ### `Access to the path 'C:\Windows\SysWOW64\out\...' is denied` — the whole run fails
 The conversion stops on the first test with an error like:
@@ -777,6 +897,8 @@ drill-down pages (`analysis_*.html`), which are always written.
 | File | Contents |
 | --- | --- |
 | `scan_report.html` | Per-asset blockers and warnings from analysis |
+| `scan_report.json` | The verdict, and in its `licensing` block the test-case count, the limit and the edition the analysis saw |
+| `scoping_summary.html`, `scoping_summary.json` | The analysis in counts and summary figures, with no names, paths, identifiers or test code, to send Merito for scoping a license if you choose; written by every analysis |
 | `executive_summary.html` | Verdict, next steps, links to the detail reports. Written by the `run` command (filesystem or ALM) and by `summarize` — not by `scan`, `convert`, or ALM analysis |
 | `analysis_assets_failed.html` | Failed assets with their causes (ALM) |
 | `alm_preflight.json` | Why the pre-flight gate refused the run — no ALM writes were made when it did |
@@ -802,8 +924,9 @@ Two places outside the run folder:
 
 When contacting support, quote the version you are running. The Migration
 Console shows it on every step, in the bottom-left corner of the dark panel on
-the left (*Version* and the number; see [gui_field_guide.md](gui_field_guide.md)
-§ *The version line*), and `uft-migrate --version` prints it. A diagnostics
+the left (*Version* and the number, with the edition on the line under it; see
+[gui_field_guide.md](gui_field_guide.md) § *The version line*), and
+`uft-migrate --version` prints it. A diagnostics
 bundle records it already, in the zip's name, `README.txt` and
 `MANIFEST.json`. Do not send the run folder: it holds your test sources
 (`alm_aom_work\`) and lacks the process logs, the environment and Windows'
@@ -816,7 +939,11 @@ on, and the problem does not have to happen again for you to collect it. You
 can collect afterwards, even after closing Phoenix: each way below reaches back
 as far as Phoenix keeps its logs, up to 30 days. When Merito support asks for
 diagnostics, or a run failed in a way this guide does not explain, collect a
-support bundle and send it to Merito support. The simplest way first:
+support bundle and send it to Merito support. Merito supports the Free Edition
+on a best-effort basis. For the Licensed Edition, your order form or statement
+of work sets the support. Merito keeps a bundle you send confidential, uses it
+only to provide that support, and deletes it within 30 days after you ask
+(LICENSE section 6.c, which says what Merito may keep). The simplest way first:
 
 1. **Answer Yes when the failure dialog asks.** *Conversion Failed* ends with
    the question *Collect diagnostics for Merito support now? Phoenix saves a
@@ -900,10 +1027,14 @@ first look Merito support takes, which you can read too.
 
 **What is never inside:** your test scripts, data tables, object repositories or
 function libraries (`alm_aom_work\`, `converted\`), the Migration Console's
-settings file, `.env` files or memory dumps. ALM server, domain, project, user,
-test, folder and library names are replaced by tokens such as `project-1` and
-`test-3f9a2c`; the file that maps the tokens back, `…KEEP-PRIVATE-names.json`,
-stays beside the zip on this PC. Phoenix's own words in its records (event and
+settings file, `.env` files, license files or memory dumps. ALM server, domain,
+project, user, test, folder and library names are replaced by tokens such as
+`project-1` and `test-3f9a2c`, and so is the licensee of a UFT Phoenix license
+(`licensee-1`), with the ALM projects a license names, even inside Phoenix's
+own sentences about the license; the file that maps the tokens back,
+`…KEEP-PRIVATE-names.json`, stays beside the zip on this PC. The environment
+names the edition in use by license id, limit and expiry only. `--keep-names`
+keeps the names, the licensee's included. Phoenix's own words in its records (event and
 step names, exception types, its code lines, COM member names) stay as they
 are, even where one equals a name of yours: a test named *Terminal* does not
 turn the journal's `terminal` records into tokens. A bundle that cannot be

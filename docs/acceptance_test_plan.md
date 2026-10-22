@@ -9,6 +9,11 @@ Artifacts referenced live under `out\<run id>\` in the directory the
 Migration Console or CLI was launched from (`%USERPROFILE%\out\` when
 started from the Start Menu shortcut). Output Root does not move them.
 
+Run sections A–K on a pilot project, or folder of tests, of up to 100 test
+cases, or with a license installed that covers it: over the free edition's
+limit a conversion is refused, and a Deep analysis keeps no builds, which
+TC-17 and TC-18 read. Section L tests the limit itself.
+
 Launch: `uft-migrate-gui` (GUI) and `uft-migrate` (CLI).
 
 ---
@@ -17,14 +22,24 @@ Launch: `uft-migrate-gui` (GUI) and `uft-migrate` (CLI).
 
 **TC-01 — Environment preflight**
 1. Run `uft-migrate doctor`.
-2. PASS: exit code 0 and no `[FAIL]` rows. Nine rows print, in order:
+2. PASS: exit code 0 and no `[FAIL]` rows. Ten rows print, in order:
    `platform`, `python`, `pywin32`, `uft-installed`, `uft-ironpython`,
-   `alm-client`, `output-root`, `offline-package`, `alm-connectivity`.
+   `alm-client`, `license`, `output-root`, `offline-package`,
+   `alm-connectivity`.
    This plan needs UFT's Python engine and the ALM client, so
    `uft-installed`, `uft-ironpython` and `alm-client` must be `[ OK ]`. A
    `[WARN]` on `alm-client` or `uft-ironpython` fails this case. If
    `uft-ironpython` shows `[ -- ]`, doctor could not locate the UFT install
    path; confirm the IronPython runtime by hand before continuing.
+   `license` reads `[ OK ]`, naming the free edition (*Free edition · up to
+   100 tests. No license file is installed.*) or the installed license. A
+   `[WARN]` there does not fail this case, but means that, in the free
+   edition, an installed license file cannot be used, that the license in
+   use expires within 30 days, or that Phoenix's own license key is damaged:
+   read its detail and its `fix:` line
+   ([troubleshooting.md](troubleshooting.md)) before section L. With a
+   license in use, a file that cannot be used is named in the detail after
+   *Other license files:* and does not make the row warn.
 3. PASS: `[ -- ]` (skipped) on the other two rows is expected.
    `offline-package` checks a package build folder and matters only to
    whoever builds the offline package; on an installed machine it is
@@ -43,8 +58,9 @@ Launch: `uft-migrate-gui` (GUI) and `uft-migrate` (CLI).
 1. Launch the GUI.
 2. PASS: the bottom-left corner of the dark panel on the left reads
    *Version* and the `ProductVersion` in `<install folder>\VERSION.txt`, with
-   nothing after the number (no *· development copy*), and stays there on
-   every step.
+   nothing after the number (no *· development copy*), and on the line under
+   it the edition: *Free edition · up to 100 tests*, or *Licensed to* and the
+   licensee of the installed license. Both stay there on every step.
 3. On Step 2 choose **Upgrade ALM Project**; on Step 3 fill
    Output Root, ALM URL, Username and Password; close the GUI; relaunch it
    and choose **Upgrade ALM Project** again on Step 2 (the workflow choice
@@ -432,6 +448,9 @@ by name on both paths.
    `UFT_MIGRATE_ALM_PASSWORD` environment variable; Copy Command works.
 
 **TC-17 — Diff viewer**
+Needs a project of up to 100 test cases, or a license installed that covers
+it: over the free edition's limit a Deep analysis deletes each build, so
+there is nothing to open.
 1. Step 6: *Compare Converted Output…*; pick a converted `Script.pts`. For
    an ALM run it is under
    `out\<run id>\alm_aom_work\test_<id>_build\<Test name>\ActionN\`.
@@ -451,7 +470,8 @@ by name on both paths.
 **TC-18 — Custom mapping rules**
 Custom mapping rules run against the line the converter has already turned
 into Python, not against the VBScript source. Write the pattern against the
-Python.
+Python. Like TC-17, step 4 reads a Deep analysis's build: run it on a project
+of up to 100 test cases, or with a license installed that covers it.
 1. Step 3: *Edit Custom Mapping Rules…*; enter pattern
    `\bWaitSeconds\((\d+)\)` and replacement `Wait(\1)`, click **Add /
    Update Rule** so the pair appears in the list, then click **Save to
@@ -483,7 +503,9 @@ removes that test.)
 3. Keep Analysis Depth = **Deep** on Step 5 and click *Re-analyze Failed
    Assets (N)*. CLI equivalent: `convert --alm --dry-run --failed-only
    --analysis-depth deep --run-id <same id>` plus the usual connection
-   arguments.
+   arguments and one `--alm-exclude-test-id <id>` for each ID in Step 5's
+   *Out-of-scope test IDs*. The button passes that field whole, and a
+   refresh that leaves an ID out analyzes that test too.
 4. PASS: only the previously-failed assets are re-analyzed, every other
    asset's result is carried forward from the previous analysis, and the
    remediated test now analyzes `ok`. (`--failed-only` applies to ALM
@@ -749,6 +771,154 @@ switch refuses this step otherwise.
     send details to Merito support, use Collect Diagnostics (bottom left).
     Nothing is sent automatically.*
 
+## L. Free edition and licensing
+
+Both cases need a folder of more than 100 test cases, and TC-30 needs a
+license file from Merito whose limit is above 101, or that has no limit, and
+that has not expired. Build the folder from one small UFT GUI test with no
+cross-test calls — here `C:\UFT\Smoke` — as 101 copies, each in a numbered
+folder of its own, so that every copy keeps the test's own name (a renamed
+test folder no longer matches its `.usr`; see
+[advanced_troubleshooting.md](advanced_troubleshooting.md) §1d). In
+PowerShell:
+
+```
+1..101 | ForEach-Object {
+    $dir = "C:\Phoenix\Limit101\{0:D3}" -f $_
+    New-Item -ItemType Directory $dir | Out-Null
+    Copy-Item -Recurse C:\UFT\Smoke $dir
+}
+```
+
+**TC-29 — Over the limit: the analysis runs, conversion is refused**
+1. Run `uft-migrate license`. PASS: it names the free edition, *Free edition
+   · up to 100 tests*. If a license is installed, remove it for this case —
+   `uft-migrate license remove <license id>`, with `--all-users` from a
+   Command Prompt opened with **Run as administrator** for one installed for
+   every user — and install it again afterwards.
+2. Step 2: **UFT FileSystem**. Step 3: Source Roots = `C:\Phoenix\Limit101`.
+   Step 5: **Run Analysis**.
+3. PASS: the analysis completes, and the card shows the verdict the test
+   earns on its own (GO for a clean test), its line reading *Scoping
+   required: 101 test cases, over the free edition limit of 100.* The status
+   line ends with the over-limit notice, which begins *This conversion
+   includes 101 test cases, by UFT Phoenix's count.* and names Merito's
+   consultation request form.
+   The step header card reads *101 test cases, over the free edition limit of
+   100.*, and its button **Scope this conversion with Merito** opens the
+   consultation request form in the browser. Scan HTML names the edition,
+   *Free edition · up to 100 tests*, and carries the *Scoping required*
+   notice; `scan_report.json` holds `licensing` with `test_cases` 101,
+   `limit` 100, `edition` `free` and `within_limit` `false`.
+4. Press **Open Scoping Summary**. PASS: `scoping_summary.html` opens from
+   the run folder, with *Test Cases* 101 and *License Limit* 100. Search it,
+   and `scoping_summary.json`, for `Smoke` and for `Limit101`: neither the
+   test's name, nor its folder, nor any line of its script is in them.
+5. Out-of-scope tests = `101`; **Run Analysis** again. PASS: the count is
+   still 101 — parking does not lower it — and the scoping summary shows 1
+   test *Parked for a later wave*.
+6. Press **Next**. PASS: *Scoping Required*, giving the notice and *How test
+   cases are counted:*; the wizard stays on Step 5.
+7. From a Command Prompt in your profile folder:
+   `uft-migrate run --source-root C:\Phoenix\Limit101 --run-id LIMIT101`.
+   PASS: exit code 2. The JSON on stdout has `"status": "license-limit"`,
+   `licensing.test_cases` 101 and no `go_no_go`. Its `message`, also on
+   stderr, begins *Conversion refused. No test was converted, backed up or
+   changed.* and, because `out\LIMIT101` holds no analysis, ends *Run uft-migrate scan
+   with the same source folders to write the scoping summary.*
+   No file was written under `out\LIMIT101`, and UFT did not start.
+8. Delete `C:\Phoenix\Limit101\101`, leaving 100, and run the same command
+   with `--run-id LIMIT100`. PASS: it is not refused: stderr shows *license:
+   100 test case(s) counted under the source folders; Free edition · up to
+   100 tests*, and the conversion starts. Let it finish, or press Ctrl+C once
+   the first test has converted and close UFT.
+9. Optional — ALM, on a project of more than 100 test cases that you may
+   analyze but must not convert. Nothing this step runs writes to ALM,
+   whatever its outcome. Run a **Deep** analysis. PASS: `migration_log.txt`
+   holds an `alm-aom-progress` line reading *[analysis] deep:* with the count
+   and *Each build is deleted once it is checked and measured.*; the report
+   carries the Technical Conversion Breakdown, and its depth note ends
+   *Builds were deleted after they were checked and measured, because this
+   project was over its test-case limit.*; no `alm_aom_work\test_<id>_build\`
+   folder is left in the run folder. Stop here unless the run folder's
+   `scan_report.json` holds `licensing` with `within_limit` `false` and
+   `test_cases` over 100, and `uft-migrate license` names the free edition.
+   Then, with the connection flags and `UFT_MIGRATE_ALM_PASSWORD` set, run
+   the upload rehearsal, which never writes to ALM:
+   `uft-migrate convert --alm --upload --dry-run --run-id <that run id>`.
+   PASS: exit code 2 and `"status": "license-limit"`; the run folder's
+   `scan_report.html` and `resume_state.json` are unchanged.
+10. Optional — the real upload's refusal, only on a disposable pilot project
+    seeded with copies of more than 100 test cases, which you can restore
+    from its backup. Never run it on a project you must not convert: if the
+    limit let the upload through, it would convert every test in place.
+    Analyze the pilot project, and stop unless its `scan_report.json` and
+    `uft-migrate license` read as in step 9. Then, with the connection flags
+    and `UFT_MIGRATE_ALM_PASSWORD` set: `uft-migrate run --alm --upload
+    --confirm-alm-backup --run-id <its analysis's run id>`. PASS: exit code
+    2, `"status": "license-limit"` and `"alm_status": "license-limit"`; the
+    tests' *Modified* dates in ALM are unchanged; the run folder's
+    `scan_report.html` and `resume_state.json` are unchanged, and it has no
+    new `executive_summary.*` and no `alm_wave_stop.json`; the crash
+    supervisor that ran the upload closed the wave it opened, and
+    `resume\alm_wave.json` gives it the status `closed-no-writes`.
+
+**TC-30 — A license lifts the limit**
+Re-create `C:\Phoenix\Limit101\101` (copy `C:\UFT\Smoke` into it again), and
+keep the Migration Console open on Step 5 with TC-29's analysis.
+1. Copy the license file, and in the copy change one letter of the
+   licensee's name. From a Command Prompt opened with **Run as
+   administrator**: `uft-migrate license install "<the changed copy>"
+   --all-users`. PASS: exit code 2 and *License not installed:* … *was
+   changed after Merito issued it, or Merito did not issue it. UFT Phoenix
+   ignores it.*; `<install folder>\licenses\` is unchanged, and
+   `uft-migrate license` still names the free edition.
+2. From the same prompt: `uft-migrate license install "<the license file>"
+   --all-users`. PASS: exit code 0; it prints *Installed license*, the
+   license id and the licensee, *for all users of this PC.*, and *Edition:
+   Licensed to* the licensee and the limit; `<install folder>\licenses\`
+   holds `<license id>.license.json`.
+3. `uft-migrate doctor`. PASS: the `license` row is `[ OK ]` and names the
+   license: its id, its expiry and the ALM projects it covers.
+4. In the Migration Console, without running the analysis again, press
+   **Next**. PASS: Step 6 opens; the version line's second line reads
+   *Licensed to* and the licensee; the step header card reads *Need Merito
+   Professional Services to lead the migration?* again. (If you closed the
+   console since TC-29, reopen it and run the analysis once: it then reports
+   no over-limit notice.)
+5. Back on Step 5, clear Out-of-scope tests and press **Run Analysis**.
+   PASS: no *Scoping required*; Scan HTML names the license as the edition;
+   `scan_report.json`'s `licensing` holds `test_cases` 101, `edition`
+   `licensed` and `within_limit` `true`. **Next** opens Step 6, and **Run
+   Conversion** starts converting (let it finish, or cancel after the first
+   test and close UFT).
+6. Optional — an expired license file: `uft-migrate license install "<the
+   expired file>"`. PASS: exit code 2, *License not installed: license* …
+   *expired on* … *Ask Merito for a renewed license.*, and nothing is
+   installed.
+7. Optional — silent deployment, from an administrator Command Prompt on a
+   machine without Phoenix; read each exit code with `echo %ERRORLEVEL%`:
+   `start /wait MeritoUFTPhoenix-<version>-Setup.exe /VERYSILENT
+   /SUPPRESSMSGBOXES /NORESTART /ACCEPTEULA /LICENSEFILE="<full path>"
+   /LOG="C:\Windows\Temp\phoenix-install.log"`. PASS: exit code 0; the log
+   has `license:` lines, the last reading *installed for all users from* and
+   the path; `uft-migrate license` names the licensee.
+8. Optional — the same command with `/LICENSEFILE=` naming a file that is
+   not there. PASS: exit code 2: Setup stopped before it installed anything.
+9. Optional — the same command with an expired license file. PASS: exit
+   code 10, and Phoenix is installed; the log's `license:` lines say why the
+   file was not installed, then *If a license was installed earlier, it still
+   applies. If not, the free edition is active.*
+10. Optional — run the installer again over the installation, as an upgrade.
+    PASS: `<install folder>\licenses\` still holds the license, and
+    `uft-migrate license` names it.
+11. Clean up: to return the machine to the free edition, run
+    `uft-migrate license remove <license id> --all-users` from an
+    administrator prompt. PASS: exit code 0 and *Edition: Free edition · up
+    to 100 tests*. (Uninstalling Phoenix would have left
+    `<install folder>\licenses\` and the license in it: licenses survive an
+    uninstall.)
+
 ---
 
 ## Suggested sign-off matrix
@@ -766,3 +936,4 @@ switch refuses this step otherwise.
 | Version control & locks | TC-21–22 | |
 | Crash recovery (validation runs only) | TC-23–27 | |
 | Diagnostics | TC-28 | |
+| Free edition and licensing | TC-29–30 | |
