@@ -228,30 +228,50 @@ by a Deep analysis or by a real conversion.
    definitions` note is emitted on the ALM path; the local filesystem path
    logs only `Harvested TEST-level parameters: [...]`.)
 
-**TC-10 — Shared-assets refusal**
-1. In ALM, copy/paste an existing GUI test in the pilot project's Test Plan,
-   then re-run Analysis (Step 5). A pasted copy cannot be converted on its
-   own — ALM conversion is whole-project — so the analysis is where its
-   status appears.
-2. PASS: the pasted copy shows status `shared-assets` in
-   `analysis_assets_failed.html`, marked "do not park" and left out of the
-   "Park the Failed Assets" list; the message names the owning test id and
-   the re-creation options (paste with "create copies of related entities",
-   or save-as a new test in UFT); Step 6's Convert Project refuses with
-   "Conversion Blocked — Unresolved Assets"; no ALM write occurred; no
-   override exists.
+**TC-10 — A pasted copy converts from its own asset records**
+1. In ALM, copy/paste an existing GUI test in the pilot project's Test Plan —
+   one that no other test calls. Then, in UFT, open the **original** (not the
+   copy), add one step that the copy will not have —
+   `Reporter.ReportEvent micDone, "TC-10", "original"` — and save it. Re-run
+   Analysis (Step 5).
+2. PASS: the copy's record in `alm_aom_results.json` is `ok` and its notes
+   name the original's test id; Scan HTML shows a *Pasted copies* row that
+   counts it; and `alm_aom_work\alm_rollback\pasted_copy_owner_maps.json` in
+   the run folder holds an entry for the copy — one for every copy that row
+   counts, and no copy's notes say *could not be kept*. The analysis wrote
+   nothing to ALM. If the copy shows `shared-assets` instead, ALM did not give it asset
+   records of its own that match its manifest: the refusal is correct, but
+   this case cannot run on that paste — record how the copy was pasted.
+3. PASS, after TC-11's conversion: the copy and its original both end `ok`
+   with `upload_verified` `ok`, and the copy's notes show
+   `owner_resolution='pasted-copy-map'` on its ARI ownership sync.
+4. Add the copy and its original to a Test Lab test set and run both from
+   ALM, with the execution host's desktop session active and its
+   `%LOCALAPPDATA%\Temp\TD_80` purged. PASS: each run executes its converted
+   Python — real steps, never the `line 1 ... could not be found`
+   placeholder — and only the original's run report shows the `TC-10` step,
+   so the copy ran its own script.
+
+The other outcomes cannot be produced on demand, and are covered by unit tests
+only: `shared` (the test owns no asset records) and `unmatched` (its records do
+not match its manifest), both refused as `shared-assets`, and `unreadable` (ALM
+could not return its records), which ends `error` and is retried.
 
 **Clean-up before section E**
-ALM conversion is all-or-nothing, so the assets TC-09 and TC-10 put into the
-pilot project will refuse the conversion run. Before continuing:
-1. Delete the pasted copy from TC-10. It must **not** be parked: a
-   `shared-assets` asset is withheld from the park list on purpose, because
-   parking it leaves the owning test converted and the copy pointing at it.
+ALM conversion is all-or-nothing, so the test TC-09 put into the pilot project
+will refuse the conversion run. TC-10's pasted copy stays: it converts in
+TC-11, with its original. Before continuing:
+1. Park neither TC-10's copy nor its original: until a live run has measured
+   how UFT runs a converted copy, a pasted copy converts together with its
+   original. If the copy showed `shared-assets` instead, delete it. It must
+   **not** be parked: a `shared-assets` asset is withheld from the park list
+   on purpose, because the test it names converts in any run that proceeds.
 2. Remediate the TC-09 test (define the missing parameter at action or test
    level in UFT, or replace the read with a DataTable/Environment lookup),
    or park it on Step 5 under *Out-of-scope test IDs*. Parking leaves it
    untouched in ALM and still VBScript after the migration.
-3. Alternatively, restore the pilot project from its snapshot.
+3. Alternatively, restore the pilot project from its snapshot, then repeat
+   TC-10's steps 1 and 2 so the copy is there for TC-11.
 4. Re-run Analysis until the verdict is GO. A Standard analysis will not
    flag the TC-09 test, but its blocker would still abort and roll back the
    conversion, so remove or remediate it either way.
@@ -267,8 +287,8 @@ Run it after the clean-up, with the GO analysis.
    `project_check` reads `"status": "ok"`; `error` is empty. There is no
    `alm-discovery-retried` line.
 3. On the pilot project, delete from the Test Plan in ALM one in-scope test
-   that no other test calls. Do not run the analysis again. Run **Convert
-   Project**.
+   that no other test calls — not TC-10's copy or its original. Do not run
+   the analysis again. Run **Convert Project**.
 4. PASS: the run is refused: *Pre-flight gate FAILED … NO ALM WRITES WERE
    PERFORMED*, with the deleted test listed as `analyzed-but-not-selected`.
    `migration_log.txt` holds one `alm-discovery-retried` line, level
@@ -276,8 +296,8 @@ Run it after the clean-up, with the GO analysis.
    and an `alm-discovery-walk` line for each of the conversion's two
    discoveries. The other tests' *Modified* dates in ALM are unchanged.
 5. Put the test back before TC-11: restore the pilot project from its
-   snapshot, or re-create the test and run the analysis again until the
-   verdict is GO.
+   snapshot (then repeat TC-10's steps 1 and 2), or re-create the test and
+   run the analysis again until the verdict is GO.
 6. Optional, with an account that one failed login does not lock: from a
    Command Prompt, set `UFT_MIGRATE_ALM_PASSWORD` to a wrong password and run
    `uft-migrate run --alm --upload --confirm-alm-backup --run-id <run id> …`
@@ -286,6 +306,48 @@ Run it after the clean-up, with the GO analysis.
    login failed …*, and `migration_log.txt` has no new `alm-discovery-retried`
    line. Where your ALM site records failed logins, it holds one for the
    account at that time, not two. Set the right password again.
+
+**TC-10b — A parked test keeps the tests it calls in VBScript**
+Run it after TC-10a, with the GO analysis, on a test that calls a shareable
+action of another in-scope test and that no other test calls (the report's
+dependency graph shows them) — not TC-10's copy or its original.
+1. Step 5: add the calling test's ID to *Out-of-scope test IDs* and press
+   **Run Analysis**, with the same Analysis Run ID.
+2. PASS: the CLI Output shows *reading which tests 1 parked test(s) call
+   (read-only)*, then *read which tests 1 of 1 parked test(s) call*.
+   `migration_log.txt` holds one `alm-parked-references-read` line, level
+   `info`, with `"parked": 1`, `"read": 1` and `"unread": 0`, and no
+   `alm-parked-references-unread` line. In `alm_aom_results.json`,
+   `parked_references` holds one entry for the parked test, with
+   `"references": "read"` and the called test's path in
+   `external_test_paths`. No test's *Modified* date in ALM changed. Record
+   the time between the two CLI Output lines: it is what reading one parked
+   test costs on this server. Scan HTML shows *Conversion blocked: Step 6
+   refuses N in-scope test(s) that parked tests call* under *Tests Step 6
+   Refuses Because Parked Tests Call Them*: the called test, with the parked
+   test as its caller, and every in-scope test that calls the called test.
+   The verdict may still read GO.
+3. Run **Convert Project**. PASS: the run is refused: *Pre-flight gate FAILED
+   … NO ALM WRITES WERE PERFORMED*. `alm_preflight.json` lists the called test
+   as `parked-caller`, its detail naming the parked test, and every in-scope
+   test that calls the called test as `callee-disqualified`: the tests the
+   report listed in step 2, with the same details. The other tests'
+   *Modified* dates in ALM are unchanged.
+4. Remove the ID from *Out-of-scope test IDs* and run Analysis again until
+   the verdict is GO before TC-11.
+5. Whenever an analysis in this plan reports a failed asset that calls, or is
+   called by, a test that passed, check its report. PASS: the asset is not in
+   **Park the Failed Assets**, and the note under that block names it with
+   *park only together with* and the other tests' IDs; on the Failed Assets
+   page its row shows the same words where the **Exclude** checkbox would be.
+6. Whenever an analysis in this plan reports a failed asset whose status is
+   `error` and you park it with **Refresh Report (N parked)**, check the
+   refreshed report. PASS: Scan HTML shows *Conversion blocked: … parked test
+   … manual intervention*, with the test's name and path, why its calls were
+   not read and what to do, and **Convert Project** is refused as
+   `parked-references-unread` with nothing written. A **Run Analysis** with
+   the test still parked reads it: the section no longer lists it, or, when
+   ALM still cannot give the test's definition, its row says so.
 
 ## E. Conversion and upload
 
@@ -352,7 +414,10 @@ Python payload. This is what makes a long run survive an interruption.
    callee, because its journal record holds the converted action layout its
    callers need. The one exception is a run folder whose journal an earlier
    version of Phoenix wrote, before that layout was recorded; for that folder,
-   run the analysis again under a new run ID and convert there.
+   run the analysis again under a new run ID and convert there. If a pasted
+   copy was converted while its original was parked or converted differently,
+   first copy `alm_aom_work\alm_rollback\pasted_copy_owner_maps.json` from the
+   earlier run folder to the same place in the new one.
 
 **TC-12 — Asset carry-over**
 1. In the same conversion, pick a test with action parameters AND a linked
@@ -393,20 +458,31 @@ CLI-driven execution evidence is required.
    the server — the skip happens before the Test Lab step, so no test would
    be executed. A new run ID needs its own analysis, or the pre-flight gate
    refuses the run.
-2. Analyze into the new run folder:
+2. Only for a pasted copy converted while its original was parked or
+   converted differently: copy
+   `alm_aom_work\alm_rollback\pasted_copy_owner_maps.json` from TC-11's run
+   folder into `out\<new id>\alm_aom_work\alm_rollback\`. TC-10's copy, which
+   TC-11 converted with its original, does not need it: if that conversion
+   renamed the copy's action records, it renamed the original's alike, and
+   Phoenix pairs the two. If step 3 reports the copy `shared-assets`, copy
+   the file then and analyze again.
+3. Analyze into the new run folder:
    `uft-migrate convert --alm --dry-run --run-id <new id> --alm-url <url>
    --username <user> --domain <domain> --project <project>`
-3. Convert and execute, with the desktop session active (do not lock or
+4. Convert and execute, with the desktop session active (do not lock or
    disconnect):
    `uft-migrate convert --alm --upload --confirm-alm-backup --run-via-alm
    --run-id <new id> --alm-url <url> --username <user> --domain <domain>
    --project <project>`
    Conversion is whole-project, so every in-scope test gets a Test Lab run.
-4. PASS: a test set is created/reused, the runs execute, and
+5. PASS: a test set is created/reused, the runs execute, and
    `run_results.xml` under `out\<new id>\alm_aom_work\test_<id>_runresults\`
    shows real steps — input parameters appear with values; any failure is a
    genuine test/environment step, never `line 1 ... previously saved ...
-   could not be found`.
+   could not be found`. A test the scheduler did not run reads `No Run`
+   with no run id and no report, even in a reused test set where it ran
+   before: never PASS it, and never read an earlier run of that set as its
+   result.
 
 **TC-14a — `--run-uft` refuses instead of silently running nothing**
 Local UFT execution was removed; the flag is kept only so it can be refused
@@ -715,7 +791,12 @@ switch refuses this step otherwise.
    (a new run id, analysed first): start the conversion, press Ctrl+C before
    the first asset's upload begins — while the run folder's
    `crash_breadcrumbs.log` holds no `upload:` line — then run the same command
-   with one option added.
+   with one option added. After a restore with `uft-migrate restore`, the new
+   run folder recognises TC-10's pasted copy if it was converted with its
+   original; if it was converted while its original was parked or converted
+   differently, copy `alm_aom_work\alm_rollback\pasted_copy_owner_maps.json`
+   from the run folder that converted it to the same place in the new one
+   before that analysis.
 8. PASS: not refused: the interrupted wave is closed — a `[Phoenix crash
    supervisor]` line and the warning `alm-crash-wave-superseded` in
    `migration_log.txt` say it wrote no test to ALM and was closed — and the
@@ -928,7 +1009,7 @@ keep the Migration Console open on Step 5 with TC-29's analysis.
 | Environment | TC-01–02 | |
 | Console basics | TC-03–04 | |
 | Analysis | TC-05–06 | |
-| Safety rails | TC-07–10, TC-10a | |
+| Safety rails | TC-07–10, TC-10a, TC-10b | |
 | Conversion | TC-11, TC-11a, TC-12–13 | |
 | Execution | TC-14 (CLI-only, optional), TC-14a, TC-15 | |
 | Power features | TC-16–19 | |

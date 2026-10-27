@@ -68,17 +68,35 @@ not open the test to read them. Phoenix already retries transient UFT faults
 three times, so read the error text and, if it names a UFT or license fault,
 re-run.
 
-**3. `shared-assets` — copy/paste-derived test** *(hard stop, no override)*
-The test's actions are owned by another test (an ALM clipboard copy), so it has
-nothing of its own to convert and UFT would run the owning test's scripts.
-Re-create the copy in ALM so it owns its actions — paste it with *create copies
-of related entities*, or save it as a new test from UFT — or, if the copy is
-redundant, point its callers at the owning test and delete it. Converting the
-owning test does not clear this: the ownership check runs at download time, and
-the copy stays disqualified at the pre-flight gate. Do not park the copy on its
-own: the owner converts in any run that proceeds, which would leave a VBScript
-test calling Python actions. Seed pilot projects with *Save As* rather than copy
-and paste. See [advanced_troubleshooting.md](advanced_troubleshooting.md) §1a.
+**3. `shared-assets` — the test owns no matching asset records** *(hard stop, no override)*
+A test whose stored `Download.xml` names another test is usually an ALM
+copy/paste, and that alone is not a stop. When ALM gave the copy its own asset
+records (Phoenix checks this), it is a *pasted copy*: it converts like any other
+test, from its own records, its notes name the test it was copied from, and the
+scan report counts it in a *Pasted copies* row. Until a live run has measured
+how UFT runs a converted copy, do not park a pasted copy while its original
+converts, or the original while the copy converts.
+
+`shared-assets` is what is left: the test owns no asset records of its own, or
+its records do not match its manifest — for example a pasted copy converted
+while its original was parked or converted differently, analyzed in a run
+folder that does not hold Phoenix's first-sight record of it. The error names
+the other test. Converting that test does not clear a test that owns no
+records, or one whose records differ from its manifest in a way other than a
+conversion's rename: that asset stays disqualified at the pre-flight gate. A
+copy whose records its own conversion renamed is recognised again once its
+original has been converted with the same actions — unless two action
+records of either test share a description, which the error then names — or
+once its first-sight record is in the run folder (copy
+`alm_aom_work\alm_rollback\pasted_copy_owner_maps.json` there from the run
+folder that first saw the copy). Do not park a `shared-assets` test on its
+own: the other test converts in any run that proceeds. Both ways to give the
+test records of its own change its identity — paste it again with *create
+copies of related entities*, or save it as a new test from UFT, and it gets a
+new test id and leaves its Test Lab history with the old one. If the copy is
+redundant, point its callers at the other test and delete it instead. See
+[advanced_troubleshooting.md](advanced_troubleshooting.md) §1a, which also
+covers the renamed copy.
 
 **4. Dynamic code (`Execute` / `Eval`)**
 Replace the dynamic dispatch in the **VBScript source** with explicit calls or a
@@ -183,7 +201,10 @@ journal written by an earlier version of Phoenix, before that layout was
 recorded: a caller of a test carried forward from it blocks with *that callee
 has no conversion record in this run* and stops the run. Convert in a new run
 folder (a fresh run id, with the analysis run under it first) so caller and
-callee convert together.
+callee convert together. If a pasted copy was converted while its original
+was parked or converted differently, first copy
+`alm_aom_work\alm_rollback\pasted_copy_owner_maps.json` from the earlier run
+folder to the same place in the new one (blocker 3).
 
 ## Pre-flight gate refusals (`alm_preflight.json`)
 
@@ -195,20 +216,28 @@ disqualified asset is named in `alm_preflight.json` with a reason code and a
 
 | Reason code | What it means | Fix |
 | --- | --- | --- |
-| `not-analyzed` | This run folder holds no analysis record for the asset. | Re-run the analysis into the same run id, or park the asset with `--alm-exclude-test-id`. |
-| `analyzed-but-not-selected` | The analysis covered it and it is in scope, but this run's discovery did not return it — not even the second time, which Phoenix runs before the gate when discovery comes back short (`alm-discovery-retried`). | If the test is still in ALM where it was, run the conversion again: a transient fault while ALM listed the Test Plan can cause this. Otherwise re-run the analysis so the scope matches, or park it explicitly. |
-| `blocked` — or any other non-`ok` analysis status (for example `shared-assets`, `no-actions`, `aom-build-failed`, `error`) | The analysis did not finish `ok` for this asset. The detail carries that analysis error, which for `blocked` quotes the first blockers. | Fix the cause the detail names — see the blocker entries above. |
+| `not-analyzed` | This run folder holds no analysis record for the asset. | Re-run the analysis into the same run id, or park the asset with `--alm-exclude-test-id` (park a test together with everything it calls and everything that calls it: see `parked-caller`). |
+| `analyzed-but-not-selected` | The analysis covered it and it is in scope, but this run's discovery did not return it — not even the second time, which Phoenix runs before the gate when discovery comes back short (`alm-discovery-retried`). | If the test is still in ALM where it was, run the conversion again: a transient fault while ALM listed the Test Plan can cause this. Otherwise re-run the analysis so the scope matches, or park it explicitly. If the test was deleted from ALM, re-run the analysis rather than park it: a parked test that the analysis measured calling tests still in scope refuses them as `parked-caller`. |
+| `blocked` — or any other non-`ok` analysis status (for example `shared-assets`, `no-actions`, `aom-build-failed`, `error`) | The analysis did not finish `ok` for this asset. The detail carries that analysis error, which for `blocked` quotes the first blockers. A pasted copy that owns its asset records is `ok` and is not listed here (blocker 3). | Fix the cause the detail names — see the blocker entries above. An `error` saying Phoenix could not read the test's asset records is a transient ALM fault, not a defect in the test: re-analyze the failed assets. |
 | `converter-blockers` | Converter blockers on an asset the analysis nonetheless recorded `ok` — seen when the analysis ran with `--allow-blockers` and the conversion did not. The first three are quoted in the detail. | Fix them, or re-run the analysis without the override so it reports them too. |
 | `unresolved-callee` | It calls a shareable action in a test that is not part of this analysis. | Re-point the reference at a test inside this project, or bring the callee back into scope if it was parked. |
 | `ambiguous-callee` | Several tests in the project carry the callee's name and its path did not resolve. | Rename the duplicate tests in ALM. |
 | `self-referencing-callee` | Its external reference resolves to the test itself. | Fix the reference in ALM. |
 | `reference-cycle` | It belongs to a cross-test reference cycle, which the detail names in full. | Break the cycle. |
-| `callee-disqualified` | A test it calls cannot be converted in this run; the detail names the callee. | Fix the named callee, or bring it back into scope if it was parked. |
+| `parked-caller` | A test parked out of this run — listed in *Out-of-scope test IDs* (`--alm-exclude-test-id`), or left out by a path filter: a *Path Exclusions* (`--exclude`) pattern it matches, or a CLI `--include` pattern it does not match — calls a shareable action in this test. The parked caller stays VBScript, and a shareable action runs in its caller's script engine, so converting this test to Python would break that call at run time. The detail names up to three callers, then *and N more*. A parked test may also call this test without naming it unambiguously: its call names no test of the analysis by full path (the test it called may have moved or been renamed since), and its name matches more than one test — several analyzed tests, or an analyzed test and a parked test, which can be the calling test itself. Phoenix cannot tell which one the call means, so it refuses each of them this run would convert rather than guess. That detail starts *May be called by a parked test, which stays VBScript, through a call that matches more than one test*, or, when a known parked caller also calls the test, continues after the known caller's detail with *It may also be called through a call that matches more than one test*. Either way it names each such call (after *Unmatched call(s):* in the first form) (the parked test, the path it calls, and the tests its name matches). A call whose full path names another parked test, or a test a path filter or its type leaves out of the analysis, means that test and refuses nothing this way. The analysis report lists each such test, with the tests that call it, under *Tests Step 6 Refuses Because Parked Tests Call Them*, before the conversion is tried. *Conversion Failed* quotes one example per reason code; `alm_preflight.json` holds every test's detail. | Fix and un-park the caller(s), or park this test too, with the rest of its call chain (every test that calls it or that it calls, directly or not). For an unmatched call: fix that call in ALM so it names its test by full path, then re-run the analysis; or park this test with its call chain, or un-park the caller with its chain. When that caller is left out by a path filter, the analysis never reads it, so re-running it hides the call without fixing it (the detail says so): fix the call in ALM first. For a caller in *Out-of-scope test IDs*, re-running the analysis with it still parked does not clear this refusal: the analysis reads which tests each parked test calls (read-only; see `parked-references-unread`), in the Migration Console as on the command line. A caller left out by a path filter is different: the analysis never reads it, so the gate sees its calls only when the analysis it judges measured it (a test moved since then into a folder a path exclusion removes, for example), and re-running the analysis with it still left out hides the call without fixing it. The detail says which case applies. If a calling test was deleted from ALM since the analysis, re-run the analysis. A test in a `.TrashCan` or `Recycle Bin` folder never counts as a caller. |
+| `parked-references-unread` | A test parked out of this run in *Out-of-scope test IDs* (`--alm-exclude-test-id`) whose calls Phoenix could not read. It stays VBScript, and whether it calls a test this run converts is unknown, so it is refused under its own id. The detail starts with what to do and ends with *Not read:* and the reason: the analysis could not read the test from ALM (*could not read the test (ALM): …*, or a reading process that crashed, did not answer or could not log in); ALM did not find it (*not found in ALM*); its analysis record stopped before its calls were read (status `error`, `not-found`, `vc-blocked`, `process-crashed` or `shared-assets`), which is what *Refresh Report* leaves when you park such a test; the analysis this conversion is judged on never saw the test (a path exclusion left it out then, or it is newer); or the run folder's analysis was made by an earlier Phoenix build, which did not read which tests a parked test calls. The analysis report lists each such test under *Parked Tests That Need Manual Intervention*. | Re-run the analysis with the test still parked: *Run Analysis*, or `convert --alm --dry-run` (*Re-analyze Failed Assets* reads it as well, when the button offers that). The analysis reads the test's calls from ALM, read-only. *Refresh Report* does not read ALM and cannot clear this. If the read fails again, ALM cannot give this test's definition: delete the test in ALM if it is no longer used, or bring it back into scope and fix it there. If ALM did not find the test because it was deleted, a full analysis no longer lists it. The Migration Console has no override. On the command line `--allow-partial-conversion` overrides it, and the run still holds approval (below). A test in a `.TrashCan` or `Recycle Bin` folder never counts. |
+| `callee-disqualified` | A test it calls cannot be converted in this run; the detail names the callee. When that callee is refused as `parked-caller`, the analysis report lists this test with it under *Tests Step 6 Refuses Because Parked Tests Call Them*. | Fix the named callee, or bring it back into scope if it was parked. If the callee is refused as `parked-caller`, follow that row: un-parking its caller, or parking the whole chain, clears both. |
 
 `--allow-partial-conversion` overrides the gate: the run converts the eligible
 assets and knowingly leaves the project part Python and part VBScript, with
 every cross-test action chain through a skipped asset broken. The gate still
-runs and still names every disqualified asset.
+runs and still names every disqualified asset. A parked test refused as
+`parked-references-unread` is not one of the skipped assets: you parked it, so
+it was never part of the conversion and stays VBScript. The override over it
+still holds approval. The executive summary lists *--allow-partial-conversion
+was used over N parked test(s) whose calls could not be read* under its gate
+failures, `uft-migrate summarize` over that run folder says the same, and the
+command exits 2, even when every test in the conversion converted.
 
 Failures during the conversion itself are a separate list. The analysis and
 conversion reports carry a **Failure Breakdown by Category** table with a
@@ -374,11 +403,25 @@ never use the override to make a status report green.
    and stop counting as failures. Park a shareable-action chain whole or not at
    all: parking a test that a surviving test calls turns that call into an
    unresolved reference, so the report stays no-go, and parking a caller whose
-   callee still converts leaves a VBScript test calling Python actions, which
-   the pre-flight gate does not check for. Assets the report marks "do not
-   park" are withheld from the copy block and stay in scope. On a filesystem
-   estate, *Out-of-scope tests* only removes tests from the conversion; their
-   findings still count in the scan verdict.
+   callee still converts would leave a VBScript test calling Python actions,
+   which the pre-flight gate refuses (`parked-caller`, above): the analysis
+   reads which tests each parked test calls, and its report lists every test
+   the conversion would refuse for that under *Tests Step 6 Refuses Because
+   Parked Tests Call Them*. The copy block leaves out a
+   failed asset whose calls tie it to tests the block does not park, whether
+   it calls them or they call it, and names the tests to park with it (*park
+   only together with …*). It counts a call the way the pre-flight gate will
+   once the asset is parked: a call that names no test by full path and
+   whose name matches more than one test ties the asset to every test of
+   that name. Assets the report marks "do not park" are
+   withheld from the copy block too and stay in scope. If you park a failed asset whose
+   analysis stopped before it read the test's calls (status `error`,
+   `not-found`, `vc-blocked`, `process-crashed` or `shared-assets`) and
+   refresh with *Refresh
+   Report*, which does not read ALM, the conversion refuses it as
+   `parked-references-unread` until *Run Analysis* has read it. On the
+   filesystem path, *Out-of-scope tests* only removes tests from the
+   conversion; their findings still count in the scan verdict.
 6. **ALM project:** re-run the read-only analysis (`convert --alm --dry-run`,
    or the Migration Console's *Analysis* step) — no ALM writes, and no
    `--confirm-alm-backup` on the CLI (the Migration Console takes the backup

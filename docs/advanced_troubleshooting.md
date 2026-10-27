@@ -30,36 +30,119 @@ literal` (the placeholder's own apostrophe). **Any run failing at line 1
 with that text is a storage/asset-model problem, never a converter
 problem.** Work through the causes below in order.
 
-### 1a. Shared asset ownership (copy/pasted tests) — status `shared-assets`
+### 1a. Pasted copies and shared asset ownership — status `shared-assets`
 
-ALM's clipboard copy/paste creates tests whose asset model still points at
-the **source** test — the copy has its own ExtendedStorage but *shares* the
-original's owners. Converting such a test can never work: uploads land in
-the copy's storage while UFT runs the owner's scripts.
+ALM's copy/paste gives the copy its own ExtendedStorage and copies the
+original's stored `Download.xml` (the asset-owner manifest) into it, so the
+copy's manifest still names the original test and the original's owner ids.
+Phoenix detects this before converting (the manifest's TEST owner id doesn't
+match the test) and then reads the test's own asset records. It decides from
+the copy's manifest and its own records, and reads the original's records only
+when those no longer match (*Without the record*, below). In a run folder that
+holds the copy's first-sight record, or while its names still match, the
+verdict does not depend on the original; without the record, the original's
+current names decide. A conversion decides as the analysis in its run folder
+did:
 
-Phoenix detects this before converting (the download manifest's TEST owner
-id doesn't match the test) and refuses with status **`shared-assets`**,
-naming the owning test. This stop is deliberate and cannot be overridden.
+- **Pasted copy — converts.** The test owns asset records whose names match the
+  manifest's relations one to one. That is the normal result of an ALM
+  copy/paste (230 of 230 copies on the one server measured), but a paste can
+  turn out differently, which is why Phoenix checks every copy. When ALM gave
+  the copy its own asset records, it converts like any other test, from those
+  records, and the original's records are never written. Its notes name the
+  test it was copied from, and the scan report shows a *Pasted copies* row with
+  the count (only when there are any).
+- **`shared-assets` — refused.** The test owns no asset records of its own, or
+  its records do not match its manifest (names missing, extra or repeated) and
+  neither its first-sight record nor its original's records place them
+  (below). The error names the kind and the other test, in the words
+  `shares its asset ownership with test <id>`. This stop is deliberate and
+  cannot be overridden.
+- **Unreadable — retried, not refused.** ALM did not return the test's asset
+  records, or the original's records that the check below reads. Phoenix
+  tries three times, two seconds apart, then ends the asset `error`, saying it
+  could not read the test's asset records. A conversion retries that like any
+  other error before the upload starts; an analysis reports it as a failed
+  asset to re-analyze. It is never reported as `shared-assets`.
 
-Fix options:
-- re-create the copy so it owns its assets: in ALM, paste it again with
-  *create copies of related entities*, or in UFT open the source test and
-  *Save As* a new ALM test — then re-run the analysis;
-- if the copy is redundant, point its callers at the owning test and delete it
+**The first-sight record.** The first time an analysis or a conversion in a run
+folder sees a pasted copy, Phoenix records which of the copy's own asset
+records stands for each relation in its manifest, by record id, in
+`out/<run>/alm_aom_work/alm_rollback/pasted_copy_owner_maps.json`. An entry is
+never overwritten. A conversion renames an action's record when the rebuild
+moves the action to another folder (§5, `test_<id>_build`), and a restore does
+not rename it back, so after a conversion the names alone may no longer match:
+Phoenix then recognises the copy through this record, and a restore uses it to
+re-point each of the copy's action records by id. Keep the file with the
+rollback snapshots. The parallel workers of a Standard analysis all write it:
+each holds a lock on the empty `pasted_copy_owner_maps.json.lock` beside it
+while it adds its entry, so none loses another's. When an entry could not be
+kept, the copy's report note says so (*could not be kept in this run folder*),
+with a record in the process logs (site `pasted_copy_maps.write`, or
+`pasted_copy_maps.read` for a file that cannot be read); unless the file itself
+cannot be read (the note then says *corrupt-file-left-alone*), a conversion in
+the same run folder records the entry when it next matches the copy, before it
+changes anything. An unreadable file is never written over: move it aside, or
+restore it from a copy, before converting. Copy the `.json` file alone; the `.lock` file is never
+needed.
+
+**Without the record: the original's records.** In a run folder that does not
+hold the record — one under a new run id, for example — a copy whose names no
+longer match its manifest gets one more check, *source correspondence*.
+Phoenix reads, by id, the original's records that the manifest lists, and
+pairs them one to one with the copy's own records by current name and
+description. A conversion changes a record's name, never its description, and
+renames the records of a copy and of its original alike when both are
+converted with the same actions; a restore renames neither back. So a copy
+converted with its original is recognised — by an analysis, a conversion or a
+restore — and an analysis or conversion records the match in the run folder's
+file like a first sight. The pairing must take in every record on both sides,
+with no name and description repeated on either; if one of the original's
+records no longer exists, or belongs to another test or to a component, the
+copy is refused. So is a copy with two action records, on either side, that
+share a description (a blank one counts): only their names, which a
+renumbering rewrites, could tell them apart. What the check cannot recognise
+is a copy converted while its original was parked, or converted differently
+from it (its actions changed since the paste, say), so that their records were
+not renamed alike: without its record that copy is refused as `shared-assets`,
+and a restore that cannot place every one of its action records fails instead
+of reporting success. Before you analyze such a copy under a new run id, copy
+`alm_aom_work/alm_rollback/pasted_copy_owner_maps.json` from the run folder
+that first saw it to the same place in the new run folder.
+
+Fix options for any other `shared-assets` test — both re-creations give the
+test a new id, so its Test Lab history stays with the old one:
+- re-create the test so it owns its records: in ALM, paste it again with
+  *create copies of related entities*, or in UFT open the original and *Save
+  As* a new ALM test — then re-run the analysis;
+- if the copy is redundant, point its callers at the other test and delete it
   before migrating.
 
-Converting the owning test "instead" is not an available action: an ALM
-conversion is whole-project, so the owner converts in the same run regardless,
-and the copy is still disqualified at the pre-flight gate (§4), which refuses
-the whole run. Parking the copy is not a fix either — the owner would still
-convert, leaving a VBScript test whose actions are now Python. The failed-assets
+Converting the other test "instead" is not an available action: an ALM
+conversion is whole-project, so that test converts in the same run regardless,
+and the `shared-assets` test is still disqualified at the pre-flight gate (§4),
+which refuses the whole run. Parking it is not a fix either — the other test
+would still convert, leaving the two in different languages. The failed-assets
 page badges a `shared-assets` asset **do not park** and withholds it from the
-one-click exclusion list for that reason.
+one-click exclusion list for that reason. For a similar reason it withholds
+a failed asset whose shareable-action calls tie it to an in-scope test that
+the list does not park, whether it calls that test or is called by it,
+directly or through other tests: its row reads *park only together with* and
+the tests' ids, and a note under the list names each one with its partners
+(in `scan_report.md`, *Not in the Park List: Calls Tie Them to Tests That
+Convert*). Parking it alone would leave a VBScript test and a Python test
+calling each other, which the pre-flight gate refuses (§4).
+
+**Parking a pasted copy — pending measurement.** Phoenix leaves a copy's stored
+`Download.xml` as the paste left it, still naming the original, and does not
+read or change the older `ERI.xml` some copies carry. How UFT runs a converted
+copy has not yet been measured on a live server. Until it has, convert a pasted
+copy and its original together: do not park one of them while the other
+converts.
 
 Verification for the curious: the pre-upload staging download in
 `out/<run>/alm_aom_work/test_<id>_source/Download.xml` lists the owners —
-`<OwnerType>TEST</OwnerType>` with a different `<OwnerId>` is the smoking
-gun.
+`<OwnerType>TEST</OwnerType>` with a different `<OwnerId>` marks a copy.
 
 ### 1b. Shadow USER_ASSETS owners (stale `.mts` ARI rows)
 
@@ -71,8 +154,9 @@ correct.
 
 Phoenix repairs this automatically during upload: it purges stale
 `Action*/Script.mts` sidecars from the server and rewrites the ARI
-`ARI_PATH` rows on **every** owner (resolved from the download manifest)
-from `.mts` to `.pts`. The run notes show the outcome:
+`ARI_PATH` rows on **every** owner (resolved from the download manifest, or,
+for a pasted copy, from the copy's own records — §1a) from `.mts` to `.pts`.
+The run notes show the outcome:
 
 ```
 VBScript sidecar purge: status='purged' purged=2
@@ -86,15 +170,58 @@ it means every action already had an owner.)
 - `status='skipped'` on the sidecar purge means the storage could not be
   probed (unreachable ServerPath, no Load) — the server state is *unknown*,
   not verified clean.
-- `owner_resolution='asset-repository-items'` means `Download.xml` was missing
-  or listed no action owners, so the fallback lookup supplied them.
+- `owner_resolution` names where the action owners came from:
+  `'download-manifest'` — by id, from the test's own `Download.xml`;
+  `'pasted-copy-map'` — a pasted copy, by id through its first-sight record,
+  or the match made again where there is none (§1a), the usual value when a
+  pasted copy converts or is restored;
+  `'user-assets-ownership'` — from the test's own asset records, matched by
+  name; `'asset-repository-items'` — `Download.xml` was missing or listed no
+  action owners, so the fallback lookup supplied them. That lookup searches the
+  project's asset rows for the test's `.usr` file name, which a pasted copy's
+  rows can carry too; an owner it lands on that ALM shows belongs to another
+  test is dropped, and the owners are looked up again among the test's own
+  records.
+- Two keys of the sync's `alm-action-repository-item-sync` event in
+  `migration_log.txt` appear only when they have something to report.
+  `dropped_foreign_owners` lists each owner the fallback lookup dropped — the
+  action, the owner id, the test or component that owns it, and its script
+  row — and none of them is written. A restore adds a warning line for each,
+  which does not fail it: `warning: owner <id> (<action>) belongs to TEST
+  <id>, not to test <id>, and was not touched by this restore; its script row
+  is <row>` (COMPONENT for a component's record). When that row is a converted
+  `.pts` path, the line goes on to say that an earlier conversion of this test
+  re-pointed that owner and that it needs repair in ALM: no restore of this
+  test writes it. `unmapped_owned_action_owners` appears when the test's own
+  records were matched by name (`user-assets-ownership`): it lists each action
+  record the payload has no folder for, such as one a conversion renamed
+  (`Action1` → `Action2`) whose rows still point at the converted folder.
+  Nothing is written for it; it does not fail an upload by itself, and a
+  restore fails on it (*ALM asset model not fully restored: action owner(s) of
+  this test matched by name have no folder in the snapshot …*).
 - `status='skipped'` on the **ARI sync** means no action owner could be
-  resolved at all. This is **not** benign. The asset-repair gate fails the
-  asset (`asset-repair-failed`, see §1f), the whole conversion aborts, and
-  every asset this run uploaded — including this one — is restored from its
-  frozen snapshot. A test with no asset model at all therefore cannot be
-  converted in place: re-create it by saving it from UFT into ALM, check that
-  the connected user may modify test assets, then re-run the conversion.
+  resolved at all. Its `alm-action-repository-item-sync` event in
+  `migration_log.txt` gives the `reason`: `missing-action-owner-ids` (none
+  found), `ambiguous-owned-owners` (the test owns two records of the same name,
+  and Phoenix will not guess which is which), `ownership-unreadable` (ALM did
+  not return the test's own records; re-run) or `pasted-copy-map-incomplete`
+  (with `owner_resolution='pasted-copy-map'`: the pasted copy's record names
+  no copy record for one of the action owners its manifest lists, and Phoenix
+  never translates only some of them). This is **not** benign. The
+  asset-repair gate fails the asset (`asset-repair-failed`, see §1f), the whole
+  conversion aborts, and every asset this run uploaded — including this one —
+  is restored from its frozen snapshot. A test with no asset model at all
+  therefore cannot be converted in place: re-create it by saving it from UFT
+  into ALM (it gets a new test id), check that the connected user may modify
+  test assets, then re-run the conversion.
+- Phoenix does not write another test's asset records. Before it re-points the
+  ARI rows of an action owner it resolved, or renames that owner, it reads the
+  owner's record, and when ALM shows that the record belongs to a different
+  test, or to a component (a BPT component can have the same id as a test), the
+  write is refused: the ARI sync returns an error naming the record, the test
+  that owns it and this test, and the asset fails as `asset-repair-failed`
+  (§1f). The check refuses only on that evidence — a record ALM does not return
+  is written as before.
 
 ### 1c. Stale UFT test cache (TD_80)
 
@@ -249,6 +376,8 @@ tree) apply to that manual run too.
 | `Cannot find the "X" object's parent "Y"` at the first GUI step | The AUT window isn't identifiable: app didn't launch, launched on a hidden/locked desktop, wrong resolution, or a stray previous instance holds state. | Verify the AUT launches manually in that session; kill stray AUT processes; check screen resolution matches the object repository's expectations; re-run. Compare against the VBScript baseline — if VBS fails at the same step, the environment (not conversion) is the cause. |
 | Run "Passed" but no test steps in the report | Zero-script-steps execution (see §1). Phoenix flags this as `incomplete-execution` when expected actions are missing from the report. | Treat as §1; never accept a "Passed" with an empty step tree. |
 | Every test times out | UFT license dialog or modal blocking on the host; or `--uft-timeout` is below real test duration. | RDP in and look at the screen; clear the dialog; raise the timeout. |
+| A test reads `No Run` with no run id; its classification is `environment-failure` (`Matched environment pattern: license`) | The Test Lab scheduler finished without running the test — on the host it logged *You cannot use the current test. A UFT One license is needed.* (another UFT One, or a stale `UFTRemoteAgent`, can hold the seat). In a test set the test has run in before (a reused `--alm-test-set-name`), Phoenix never reports the earlier run as this one's result: a test that got no new run is `No Run`, with no report. A run that ALM records only after Phoenix has stopped waiting for it (about 20 seconds after the scheduler finishes, then between 30 seconds and two minutes more, by `--uft-timeout`) also reads `No Run`: a failure, never a false pass. | Free the license (close other UFT One sessions, stop a stale `UFTRemoteAgent`) and re-run; a `No Run` is never a pass. |
+| A test reads `Error` with no run id; its reason (and the asset's notes) say what raised, for example `Test Lab orchestration failed: ...` | Phoenix could not start or follow the Test Lab run: the test set or the test instance could not be created, or the scheduler would not start. The test did not run, and it counts as a failed run, never as one that was not requested. | Fix what the reason names (the Test Lab folder or set, the host, the ALM connection) and re-run. |
 | `SystemUtil.Run` fails with `0x-7ffdfff7` | The launched path does not exist on the execution host. | Phoenix does not rewrite path literals: a surviving `HP\`, `HPE\` or `Micro Focus\Unified Functional Testing` prefix is the source test's own text and is intended behaviour, not a converter gap. Correct the path in the source test, install the application there, or supply a custom mapping rule (a regex substitution applied during conversion). |
 
 ---
@@ -324,7 +453,9 @@ data-integrity stop rather than a quality gate — the override exists for
 constructs an expert knowingly accepts, not for output that cannot execute:
 
 - **`shared-assets`** (§1a) — not a blocker at all; a pre-conversion refusal
-  with no override.
+  with no override, for a test that owns no asset records of its own or whose
+  records do not match its manifest. A pasted copy that owns matching records
+  is not refused.
 - **`converted output is not valid Python`** — the syntax gate. If any
   converted action fails to parse, the test is refused (`status='blocked'`)
   even with `--allow-blockers`, on both the conversion path and
@@ -415,14 +546,83 @@ any in-scope asset is disqualified, the run is refused with status
 `preflight-failed` and nothing is written. Disqualified means:
 
 - an analysis status other than `ok` — for example `blocked` without
-  `--allow-blockers`, `shared-assets`, or `error`;
+  `--allow-blockers`, `shared-assets`, or `error` (a pasted copy that owns its
+  asset records is `ok` and converts with the rest, §1a);
 - converter blockers on an otherwise-`ok` asset (`converter-blockers`) — the
   analysis was run with `--allow-blockers` and the conversion was not;
 - no analysis record at all (`not-analyzed`), or a record the run's discovery
   did not return (`analyzed-but-not-selected`);
 - a cross-test reference that cannot be retargeted: `unresolved-callee`,
   `ambiguous-callee`, `self-referencing-callee`, `reference-cycle`, or
-  `callee-disqualified` (a caller whose callee is itself disqualified).
+  `callee-disqualified` (a caller whose callee is itself disqualified);
+- a selected test that a parked test calls (`parked-caller`): a test listed
+  with `--alm-exclude-test-id`, or removed by a path filter (a *Path
+  Exclusions* / `--exclude` pattern it matches, or a CLI `--include` pattern
+  it does not match), stays VBScript, so a test whose shareable action it
+  calls cannot become Python. The gate reads a parked test's calls from its
+  analysis record when the analysis measured it, and otherwise from what the
+  analysis read about it: an analysis that parks tests reads which tests each
+  one calls, read-only, before it analyzes anything (below). So the refusal
+  stands when the analysis and the conversion park the same tests, as the
+  Migration Console always does, and after a re-analysis that keeps the
+  parking. A test a path filter leaves out is never read: the gate sees its
+  calls only when the analysis it judges measured it. A test in a `.TrashCan`
+  or `Recycle Bin` folder never counts, because it does not run. The detail
+  names up to three callers. A parked test's call that names no test of the
+  analysis by its full path (the test it called moved or was renamed) and
+  whose name matches more than one test refuses every test of that name this
+  run would convert, rather than guess: the detail then starts *May be called
+  by a parked test … through a call that matches more than one test* (or,
+  when a known parked caller also calls the test, continues with *It may
+  also be called through a call that matches more than one test*) and
+  names the call (under *Unmatched call(s)* in the first form). Such a call whose path names
+  another parked test, or a test left out by path or by type, refuses
+  nothing this way;
+- a parked test whose calls could not be read (`parked-references-unread`),
+  refused under its own id because whether it calls a test this run converts
+  is unknown: the analysis's read of it in ALM failed or did not find it, its
+  analysis record stopped before the read (`error`, `not-found`, `vc-blocked`,
+  `process-crashed`, `shared-assets`) and lists no call, the analysis never saw
+  it (path-excluded then, or newer), or the run folder's analysis was made by
+  an earlier Phoenix build, which did not read parked tests. An id this run
+  parks that discovery does not return and the analysis knows nothing about
+  (a mistyped one, say) refuses nothing. `alm_preflight.json` counts these tests in
+  `counts.assessed`, and the refusal headline's *N of M asset(s)* includes
+  them.
+
+**The parked-reference read.** A parked test stays VBScript, so before an
+analysis that parks tests (*Out-of-scope test IDs*, `--alm-exclude-test-id`)
+measures anything, and before it opens its own ALM connection, it reads which
+tests each parked test calls. It does this read-only, in separate processes as
+discovery does: one ALM login per process, up to 25 parked tests per process,
+and never more processes at once than the analysis's workers. For each test
+it finds the test, downloads its definition to
+`alm_aom_work\parked_references\` (removed after the read) and reads the
+calls from its `Test.tsp`. Nothing is checked out, locked, built or written,
+and an asset record's owner is not read. A test that cannot be read is tried
+once more in place, then once more by a fresh process with its own login;
+until one process has logged in the others wait, and after a refused login
+no other starts, so a wrong password costs one failed login. Measured live
+on 2026-10-26 (316 parked tests, 0 unread, 10 workers), the read took 128
+seconds of wall-clock, about 0.4 seconds per parked test, and about 2.5
+seconds per test inside one reading process, its login included. Each
+reading process reads up to 25 parked tests and up to *Threads* of them run
+at once, so up to 25 parked tests take about 2.5 seconds each (one process:
+more workers do not help), and more take about ceil(N/25)/*Threads* rounds
+of roughly a minute each; the 0.4 seconds per test holds only for a few
+hundred parked tests. An analysis
+that parks nothing does none of this. A full analysis reads every parked test
+again; *Re-analyze Failed Assets* (`--failed-only`) keeps what the analysis it
+refreshes already proved and reads only the rest; *Refresh Report* reads
+nothing from ALM. The result is kept as the `parked_references` list of
+`alm_aom_results.json`: per parked test its id, name, path, the tests it
+calls (`external_test_paths`), `references` (`read` or `unread`), `source`,
+and for an unread one `error` and, when diagnostics recorded the fault,
+`error_id`. `migration_log.txt` logs one `alm-parked-references-read` info
+line (`parked`, `read`, `unread`, `sources`) and, when any test could not be
+read, the warning `alm-parked-references-unread` naming them, also printed as
+an `[analysis]` progress line. The analysis verdict, its counts and the
+test-case count do not change.
 
 `alm_preflight.json` names every disqualified asset with its reason code and
 detail. Foreign checkouts and locks are only **warnings** here; a foreign
@@ -454,7 +654,12 @@ instead of failing the run.
 The CLI-only `--allow-partial-conversion` overrides this gate and converts the
 eligible assets anyway. It knowingly leaves the project part Python and part
 VBScript, and records every skipped asset as a `preflight-disqualified` failure.
-Treat it as a last resort.
+A parked test refused as `parked-references-unread` is not a skipped asset and
+gets no such row; the override over one still makes the conversion exit 2, and
+the executive summary and `summarize` hold approval with the line
+*--allow-partial-conversion was used over N parked test(s) whose calls could
+not be read*. The `alm-preflight-override-applied` event's `disqualified`
+count leaves those tests out. Treat the override as a last resort.
 
 ---
 
@@ -466,14 +671,15 @@ folder appears). `--output-root` moves converted output, not the run folder.
 
 | Artifact | What to look for |
 | --- | --- |
-| `alm_aom_results.json` | Per-test truth: `status`, `error`, `blockers[]`, `converter_findings[]`, `uploaded`, `upload_verified` (`ok`/`mismatch`/`failed`), `rollback_status`, `resumed` (an earlier run of this run id already converted it and the server still holds the Python), `wave` (the conversion wave, §9), `crash_recovery` (what crash recovery did around this test; the same lines open its `notes[]` with `[crash recovery]`), the run's `discovery` block (`retried`: whether discovery ran a second time; `unplaced_tests` / `unplaced_test_ids`: tests ALM lists that discovery could not place in a Test Plan folder, which the executive summary's Next Steps name), `runtime_helper_blocks`, `test_lab_run_id`/`_status`, and `notes[]` — the chronological story of each test. A gate rehearsal (`--upload --dry-run`) never writes this file, so during a rehearsal it still holds whatever the prior analysis left there. Neither does a conversion that stopped and stayed open to resume (`alm_wave_stop.json`, below). Start here. |
-| `migration_log.txt` | JSON-lines event stream with timestamps — the cross-test timeline. Search for `"level": "error"` first (pre-flight refusals, refusals over the free-edition limit — `alm-license-gate` — run aborts, failed assets, upload-verify and rollback failures, failed ALM reconnects, native crashes of the conversion process and crash recovery that stopped — `alm-crash-detected`, `alm-crash-budget-exhausted`, `alm-crash-recovery-gave-up`, `alm-crash-wave-abort` — and stopped conversion waves, `alm-wave-stopped`), then `"level": "warning"` (transient retries, session reconnects, lock revocations, per-asset rollback outcomes, the cleanup and relaunch after a crash, the check of the test a crash left in flight — `alm-crash-reconcile-*` — a wave's copy of a test frozen again because the test changed in ALM before the wave wrote it, `alm-wave-snapshot-refrozen`, an unfinished wave that had written no test closed for a launch with other inputs, `alm-crash-wave-superseded`, a continued wave that skipped the pre-flight gate, `alm-preflight-skipped-wave-resume`, a discovery that failed while reading the Test Plan, died without an answer or came back short and ran a second time, `alm-discovery-retried`, and tests the project's list holds that the walk did not return and whose folder could not be read, `alm-discovery-folder-unreadable`; a discovery that sent no test-case count, `alm-test-case-count-fallback`; and, on a failed-only refresh, tests the previous analysis parked that are no longer parked and are analyzed now, `alm-failed-only-unparked`, or that name no test ALM could find, `alm-failed-only-unparked-not-found`). Every run that counted test cases logs one `alm-test-case-count` info line (§4). Each discovery that reached the Test Plan also logs one `alm-discovery-walk` info line: the start folder, the folders walked, the tests seen of every type in each top-level folder, the skips it counted, the check against the project's test list and, for a failed discovery, the error. In PowerShell: `Select-String -Path migration_log.txt -Pattern '"level": "error"'`. |
+| `alm_aom_results.json` | Per-test truth: `status`, `error`, `blockers[]`, `converter_findings[]`, `uploaded`, `upload_verified` (`ok`/`mismatch`/`failed`), `rollback_status`, `resumed` (an earlier run of this run id already converted it and the server still holds the Python), `wave` (the conversion wave, §9), `crash_recovery` (what crash recovery did around this test; the same lines open its `notes[]` with `[crash recovery]`), the run's `discovery` block (`retried`: whether discovery ran a second time; `unplaced_tests` / `unplaced_test_ids`: tests ALM lists that discovery could not place in a Test Plan folder, which the executive summary's Next Steps name), `runtime_helper_blocks`, `test_lab_run_id`/`_status`, and `notes[]` — the chronological story of each test. An analysis that parks tests also writes `parked_references`: which tests each parked test calls, or why that could not be read (§4, *The parked-reference read*); an analysis that parks nothing writes no such key. A gate rehearsal (`--upload --dry-run`) never writes this file, so during a rehearsal it still holds whatever the prior analysis left there. Neither does a conversion that stopped and stayed open to resume (`alm_wave_stop.json`, below). Start here. |
+| `migration_log.txt` | JSON-lines event stream with timestamps — the cross-test timeline. Search for `"level": "error"` first (pre-flight refusals, refusals over the free-edition limit — `alm-license-gate` — run aborts, failed assets, upload-verify and rollback failures, failed ALM reconnects, native crashes of the conversion process and crash recovery that stopped — `alm-crash-detected`, `alm-crash-budget-exhausted`, `alm-crash-recovery-gave-up`, `alm-crash-wave-abort` — and stopped conversion waves, `alm-wave-stopped`), then `"level": "warning"` (transient retries, session reconnects, lock revocations, per-asset rollback outcomes, the cleanup and relaunch after a crash, the check of the test a crash left in flight — `alm-crash-reconcile-*` — a wave's copy of a test frozen again because the test changed in ALM before the wave wrote it, `alm-wave-snapshot-refrozen`, an unfinished wave that had written no test closed for a launch with other inputs, `alm-crash-wave-superseded`, a continued wave that skipped the pre-flight gate, `alm-preflight-skipped-wave-resume`, a discovery that failed while reading the Test Plan, died without an answer or came back short and ran a second time, `alm-discovery-retried`, and tests the project's list holds that the walk did not return and whose folder could not be read, `alm-discovery-folder-unreadable`; a discovery that sent no test-case count, `alm-test-case-count-fallback`; and, on a failed-only refresh, tests the previous analysis parked that are no longer parked and are analyzed now, `alm-failed-only-unparked`, or that name no test ALM could find, `alm-failed-only-unparked-not-found`; and, on an analysis that parks tests, the parked tests whose calls could not be read, `alm-parked-references-unread`). Every run that counted test cases logs one `alm-test-case-count` info line (§4), and every analysis that parks tests one `alm-parked-references-read` info line (§4). Each discovery that reached the Test Plan also logs one `alm-discovery-walk` info line: the start folder, the folders walked, the tests seen of every type in each top-level folder, the skips it counted, the check against the project's test list and, for a failed discovery, the error. In PowerShell: `Select-String -Path migration_log.txt -Pattern '"level": "error"'`. |
 | `alm_preflight.json` | The pre-flight verdict, written on every conversion run: `status` (`pass`/`fail`), the selected and eligible ids, and every disqualified, out-of-scope and warning asset with its `reason_code` and detail. When `status` is `fail`, no ALM write happened (§4). A conversion that continues an unfinished wave does not run the gate again (§9); it writes back the gate report the wave started under, which the wave recorded in the journal. |
 | `resume/alm_test_results.ndjson` | The durable conversion journal — one JSON line per event, each written as it happens. Since 1.1.5 the records of an upload conversion also carry its conversion wave id (`wave`). The `record` field: per asset `intent`, `attempt`, `terminal`, `already-converted` and `resume-mismatch`; the write markers `upload-started` (written to disk *before* the first write of a test's payload — no marker means that write never started), `upload-saved` and `upload-verified`; the abort and rollback records `aborted`, `not-attempted`, `rollback-started`, `restore-started`/`restore-done`, `rollback-asset-done`, `rollback-finished` and `rollback`; crash recovery's `crash`, `budget-exhausted`, `reconcile-untouched`, `reconcile-vc-undo`, `legacy-in-flight-verified`, `operator-settled` and `wave-snapshot-refrozen`; the wave's own `run-start`, `run-end`, `run-result`, `wave-start`, `wave-attempt`, `attempt-end`, `attempt-interrupted`, `wave-phase` and `wave-end` (whose `outcome` says how the wave closed — `superseded-no-writes`, for example, for an unfinished wave that had written no test and was replaced by a launch with other inputs); and `session-lost`/`session-restored`/`session-reconnect-failed`. A write that another program blocks for a moment — a backup or sync agent, an antivirus scanner — is retried for about 8 seconds. It survives a killed run, and a re-run of the same run id reads it to continue an unfinished wave and to skip assets that are already converted. The `terminal` record also carries the test's path and name and its converted action layout (`action_renumber_map`, `action_name_folders`, `action_folder_has_code`, `function_library_links`), which is what lets a skipped asset still serve as a callee for the tests converted after it. A journal written by an earlier version of Phoenix lacks those fields, and a caller of an asset carried forward from one blocks with `that callee has no conversion record in this run` (see [troubleshooting.md](troubleshooting.md)). Read it first after an interrupted conversion. In PowerShell: `Select-String -Path resume\alm_test_results.ndjson -Pattern '"record": "terminal"'`. |
-| `alm_aom_work/test_<id>_source/` | The test as downloaded by the **latest** attempt in this run folder. It is deleted and downloaded again on every attempt, so after a re-conversion it can hold the converted Python. Contains `Download.xml` (asset-owner manifest, §1a). |
+| `alm_aom_work/test_<id>_source/` | The test as downloaded by the **latest** attempt in this run folder. It is deleted and downloaded again on every attempt, so after a re-conversion it can hold the converted Python. Contains `Download.xml` (asset-owner manifest, §1a); a pasted copy's names the test it was copied from, before and after its conversion, because Phoenix never changes it. |
 | `alm_aom_work/alm_rollback/test_<id>_source/` | The first-sight pre-conversion payload, written once on the first non-dry-run attempt in this run folder and never touched again. The copy lands under a temporary name and is renamed into place only once complete, so a copy cut short by a crash never looks complete. In an upload conversion it is made from the wave's copy (next row) as hard links where the disk allows, so it takes no extra space. `uft-migrate restore` without `--wave` puts back **this** copy; treat it, not `test_<id>_source`, as the original. A real conversion and a **deep** analysis (which AOM-builds every test) both create it; a standard analysis and a `--dry-run` rehearsal do not. |
 | `alm_aom_work/alm_rollback/waves/<wave>/test_<id>/` | The copy one conversion wave froze of the test before it changed the test: `payload/` (exactly what the wave's first download held) and `manifest.json` (every file with its size and SHA-256, written last — a folder without it is a copy that never finished and is never used). Crash recovery, the wave's automatic rollback and `restore --wave` restore only from this copy, never from an older one. A `test_<id>.tmp-…` folder is a copy that died half-way; the next attempt deletes it. A `test_<id>.superseded-<time>` folder is a copy set aside — by `restore --accept-current-state`, or because the test changed in ALM before the wave wrote it and the wave froze it again. When a new wave starts, the copies of older waves that are closed and settled (§9) are deleted, except those of the newest one that wrote a test; a wave that wrote no test — a launch the pre-flight gate refused, for example, or one that only replaced function libraries, which the journal does not record — does not count, and its own copies go once a newer wave that wrote a test has finished. Only an upload conversion freezes these. |
 | `alm_aom_work/alm_rollback/resources/<wave>/<id>/` | The bytes of each `.pfl` function library that conversion wave `<wave>` replaced while converting test `<id>`. The first copy the wave saves is kept; when a later attempt of the wave replaces bytes that differ from it, those bytes are kept beside it in a `replaced_<UTC time>_…` folder — and so are those of a second library of the same file name that the test links from another folder, since the first copy is kept by file name. Either way the per-asset note `EXISTING CONTENT REPLACED — prior copy saved to <path>` names the copy of exactly the bytes that write replaced. These copies are deleted with the wave's test copies (row above). |
+| `alm_aom_work/alm_rollback/pasted_copy_owner_maps.json` | The first-sight record of each pasted copy this run folder has seen (§1a): which of the copy's own asset records stands for each relation in its manifest, by record id, with the test it was copied from and when Phoenix first saw it. Written by the first analysis or conversion that sees the copy, and never overwritten; a damaged file is ignored and left as it is. An entry Phoenix found by pairing the copy's records with its original's (§1a) carries `derived_by: source-correspondence`. A copy that a conversion renamed while its original was parked or converted differently is recognised and restored only through this file, so keep it with the rollback snapshots, and copy it to the same place in a new run folder before analyzing such a copy there. |
 | `crash_breadcrumbs.log` | One JSON line written immediately before each ALM call of an upload or a restore, and around each AOM build (§9). The last line for a process that died names the step it died in. |
 | `crash_recovery/<wave>/` | What the crash supervisor kept for one conversion wave (§9): per attempt `attempt_NN/` with `command.txt` (the password masked), `stdout.log` and `stderr.log`, plus, after a native crash, `crash.json` and a copy of Windows' `Report.wer` when Windows wrote one; the wave's `supervisor.log`; and `restore_commands.txt` when recovery stopped with tests still to restore. Crash dumps are never copied here. A wave that completes without a crash keeps only `command.txt` and `supervisor.log`, and only the newest two finished waves that wrote a test keep their folder (a wave that wrote no test does not count, even if it replaced a function library: library writes are not journaled); an unfinished wave always keeps its own. |
 | `alm_wave_stop.json` | Written when a conversion wave stops and stays open (§9): the reason, the test, the copy to restore from and the next steps. The report set is left as it was. Deleted when a later upload conversion in this run folder ends without stopping. |
@@ -483,9 +689,11 @@ folder appears). `--output-root` moves converted output, not the run folder.
 | `alm_aom_work/test_<id>_verify/` | The post-upload re-download used for byte verification. |
 | `alm_aom_work/test_<id>_runresults/.../run_results.xml` | Test Lab run detail: `<ErrorText>` nodes carry the real failure; `<Parameter name=... value=...>` proves parameter delivery at run time. |
 | `executive_summary.html` | The verdict + next-steps rollup with drill-down links. |
+| `scan_report.html`, `scan_report.md`, `analysis_assets_failed.html` | The analysis report and its failed-assets page. When a parked test's calls could not be read, each carries the section *Parked Tests That Need Manual Intervention* (in `scan_report.html` just before the *Recommended Remediation Queue*, in `scan_report.md` before the out-of-scope list, and first on the failed-assets page): per test its name and id, ALM path, why its calls were not read, with the error id when there is one, and what to do (§4, `parked-references-unread`); a parked test the analysis has no entry for (an analysis by an earlier Phoenix build) is listed there by id, with the gate's reason. The section is absent when every parked test was read. When a parked test calls a test that passed the analysis, each also carries *Tests Step 6 Refuses Because Parked Tests Call Them*, after it: per test its name and id, ALM path, the parked caller(s) or the refused test(s) it calls, and the pre-flight gate's refusal word for word (§4, `parked-caller`, `callee-disqualified`). With an error id, start from its record in the process logs (Error ids row). |
 | GUI runs: `analysis_cli_*.log`, `run_cli_*.log` | Raw engine output as the console saw it. For an ALM conversion, `run_cli_stderr.log` also carries the crash supervisor's own lines, which start `[Phoenix crash supervisor]`; each attempt's own output is also kept in `crash_recovery/<wave>/attempt_NN/` until the wave completes without a crash. |
-| `%LOCALAPPDATA%\Merito\UFT Phoenix\logs\*.ndjson` | Outside the run folder: one diagnostics log per process, named `<start time>_<role>_<pid>.ndjson`. Roles are `gui`, `cli` (it becomes `supervisor` when it supervises a conversion), `worker`, `collector`, and `build-child`, `analysis-child` and `discovery-child`, which write a file only once they have a warning or an error. Each line is one record: the envelope `timestamp_utc` (milliseconds), `level`, `event`, `role`, `pid`, `seq` (a gap is a lost record), `thread` off the main thread, and `ctx`, the bound context (`run_id`, `wave`, `attempt`, `test_id`, `step`, `retry`). `process-start` says which build ran (`phoenix.version`, `.commit`), on which Python, with or without a console, and with which crash settings; `run-bind` links the process to its run folder; `step` is each breadcrumb at millisecond resolution; `child-start`/`child-exit` name each child process and how it ended; `exception` and `swallowed` carry the error in full (next row); the `alm-*` events are copies of `migration_log.txt`'s warnings and key events, which survive when that file is cleared. The ALM password is masked before anything is written. Search them like `migration_log.txt`: `Select-String -Path "$env:LOCALAPPDATA\Merito\UFT Phoenix\logs\*.ndjson" -Pattern '"level": "error"'`. |
-| Error ids `E-<time>-<pid>-<seq>` | The `error_id` of an `exception` or `swallowed` record. It is copied to where the failure shows: the CLI's failure result (`error_id`), the crash supervisor's failure result (`error_id`; its message itself names no id), the journal's `attempt` and `terminal` records, `alm_aom_results.json` (`error_id`, and `error_ids` for errors an asset carried on past) and the `alm-test-processing-completed` event. A test whose isolated AOM build failed (`aom-build-failed`) carries the id of the build child's own record. `error_ids` names only records written in full: a process writes the first 3 of one swallowed fault (its site and `fp`) in full and from then on only counts it, in `swallow-summary` records, which triage adds to the fault's scale. The record gives the exception type and message, every COM error in its chain (HRESULT, `scode` and the server's description), the innermost Phoenix frame that is not a generic helper (`where`) with its source line, the helper and the first frame outside Phoenix (`helper`, `boundary`), the COM member being read or called (`member`, `access`), the frames, and a fingerprint `fp` that stays the same for the same fault across retries and runs. Search for the id: `Select-String -Path "$env:LOCALAPPDATA\Merito\UFT Phoenix\logs\*.ndjson" -Pattern 'E-20261006T101500Z-7720-41'`. |
+| `%LOCALAPPDATA%\Merito\UFT Phoenix\logs\*.ndjson` | Outside the run folder: one diagnostics log per process, named `<start time>_<role>_<pid>.ndjson`. Roles are `gui`, `cli` (it becomes `supervisor` when it supervises a conversion), `worker`, `collector`, and `build-child`, `analysis-child` and `discovery-child`, which write a file only once they have a warning or an error. Each line is one record: the envelope `timestamp_utc` (milliseconds), `level`, `event`, `role`, `pid`, `seq` (a gap is a lost record), `thread` off the main thread, and `ctx`, the bound context (`run_id`, `wave`, `attempt`, `test_id`, `step`, `retry`). `process-start` says which build ran (`phoenix.version`, `.commit`), on which Python, with or without a console, and with which crash settings; `run-bind` links the process to its run folder; `step` is each breadcrumb at millisecond resolution; `child-start`/`child-exit` name each child process and how it ended; `uft-force-kill` gives each kill of UFT its two taskkill exit codes (0 killed, 128 not running, 1 refused) and whether it waited its 8 seconds; `temp-sweep`, once per ALM run in the `cli` or `supervisor` log, counts the old Phoenix folders it removed from `%TEMP%` (never their names); `exception` and `swallowed` carry the error in full (the Error ids row); the `alm-*` events are copies of `migration_log.txt`'s warnings and key events, which survive when that file is cleared. The ALM password is masked before anything is written. Search them like `migration_log.txt`: `Select-String -Path "$env:LOCALAPPDATA\Merito\UFT Phoenix\logs\*.ndjson" -Pattern '"level": "error"'`. |
+| `%TEMP%\uft_*`, `%TEMP%\uftphx_alm_*` | Outside the run folder: Phoenix's scratch folders, each named with its prefix and eight random characters. `uft_alm_ari_manifest_` is a whole download of a test after its upload, read once to repair its asset records; `uft_pfl_`, `uft_pfl_verify_` and `uft_pfl_read_` hold a converted function library on its way to ALM and back; `uft_alm_mts_probe_` is the listing that finds leftover VBScript files; `uft_aom_build_` holds the isolated build's request and result; `uftphx_alm_results_` and `uftphx_alm_discover_` hold an analysis's worker results (and the answers of the parked-reference read, §4) and discovery's answer, with each worker's own `%TEMP%` (the ALM client's cache) inside. They hold customer test content and only the user who ran Phoenix can read them. Each goes as soon as Phoenix has read it; one left behind means a crash, a kill or a child process Phoenix could not stop, or that 1.3.0 or earlier ran here: those left a download of every uploaded test (about 4 MB on average) and a folder per analysed test for good. The next ALM run removes those not changed for 7 days, at most 500 a run (the `temp-sweep` record above counts them). Folders an elevated run left deny a normal user: delete them from an elevated prompt while no Phoenix process runs. |
+| Error ids `E-<time>-<pid>-<seq>` | The `error_id` of an `exception` or `swallowed` record. It is copied to where the failure shows: the CLI's failure result (`error_id`), the crash supervisor's failure result (`error_id`; its message itself names no id), the journal's `attempt` and `terminal` records, `alm_aom_results.json` (`error_id`, and `error_ids` for errors an asset carried on past; a parked test whose calls could not be read carries its `error_id` in `parked_references`, and the analysis report prints it) and the `alm-test-processing-completed` event. A test whose isolated AOM build failed (`aom-build-failed`) carries the id of the build child's own record. `error_ids` names only records written in full: a process writes the first 3 of one swallowed fault (its site and `fp`) in full and from then on only counts it, in `swallow-summary` records, which triage adds to the fault's scale. The record gives the exception type and message, every COM error in its chain (HRESULT, `scode` and the server's description), the innermost Phoenix frame that is not a generic helper (`where`) with its source line, the helper and the first frame outside Phoenix (`helper`, `boundary`), the COM member being read or called (`member`, `access`), the frames, and a fingerprint `fp` that stays the same for the same fault across retries and runs. Search for the id: `Select-String -Path "$env:LOCALAPPDATA\Merito\UFT Phoenix\logs\*.ndjson" -Pattern 'E-20261006T101500Z-7720-41'`. |
 
 Standard triage: `alm_aom_results.json` status → that test's `notes[]` →
 its `run_results.xml` `<ErrorText>` → the layer table in §1/§2/§3. With an
@@ -770,13 +978,29 @@ converted again. The comparison leaves out lock files (`*.lck`, such as
 `Default.xls.lck`), which come and go from one download of a test to the next,
 and `Download.xml`. The verification after any restore leaves out only the lock
 files: `Download.xml` must come back, though its content may differ, and a
-restore that does not put it back fails when the frozen copy has one. Tests already converted in this wave are carried forward, not
-converted again. While this happens, the Migration Console's status line shows
-the supervisor's latest message.
+restore that does not put it back fails when the frozen copy has one. A pasted
+copy's action records are re-pointed by id through its first-sight record
+(§1a); without that record, a restore that cannot place every one of the copy's
+action records fails rather than report the copy restored. Tests already
+converted in this wave are carried forward, not converted again. While this
+happens, the Migration Console's status line shows the supervisor's latest
+message.
 
 **The crash budget.** Recovery stops relaunching at the third crash while the
-same test is in flight, at the sixth crash in the wave, or at the second crash
-in a row that happened outside any test with no test finished in between.
+same test is in flight, when the wave's crashes reach the wave's crash budget,
+or at the second crash in a row that happened outside any test with no test
+finished in between. The wave's crash budget is 6 plus 2 % of the tests the
+wave has begun converting, rounded down: 6 until it has begun 50, 7 at 50, 8
+at 100, 12 at 348, 106 at 5,000. A test counts once, when the wave first
+starts converting it: converting it again after a crash, carrying it forward
+as already converted and restoring it add nothing. The start and relaunch
+messages give the budget as it stands and how it was reached, and every
+crash's `crash.json` and journal `crash` record carry it as
+`wave_crash_budget`. A wave an earlier Phoenix opened keeps that build's fixed
+budget of 6 when this build continues it. The reverse does not hold: finish an
+open wave with the build that opened it or a newer one. An earlier Phoenix
+(1.3.0, for example) applies its fixed 6 to any wave, so at its next launch it
+can abort and roll back a wave that the newer build said would continue.
 The supervisor then starts the worker once more, in abort mode: it converts
 nothing, marks the test that was in flight, if any, `process-crashed` (report
 category *Crashed the conversion process repeatedly*), and rolls back
@@ -817,7 +1041,9 @@ outside — ends the run with exit code 2 and the wave open.
 - `attempt_NN/` for every attempt: `command.txt` (the worker's command line,
   with the ALM password masked), `stdout.log` and `stderr.log`. After a native
   crash also `crash.json` — the exit code, where the crash struck, the last
-  breadcrumbs, what was cleaned up and a summary of the WER report, with the
+  breadcrumbs, the crash counts and the wave's crash budget the decision was
+  taken against (`wave_crash_budget`), what was cleaned up and a summary of the
+  WER report, with the
   fail-fast code named as Windows names it (`FATAL_APP_EXIT` for code 7, for
   example; a code Windows does not define reads `subcode N`) — and a copy of
   `Report.wer` when Windows wrote one. A crash dump is never copied: it can

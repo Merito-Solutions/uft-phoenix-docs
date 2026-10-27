@@ -47,9 +47,20 @@ model), [gui_field_guide.md](gui_field_guide.md) (console reference),
   counts and summary figures, with no names, paths, identifiers or test code,
   that you can send Merito if you choose — and install the license before
   Phase 2: the pilot converts tests too.
-- Identify copy/paste-derived tests early (they surface as `shared-assets`)
-  and decide: re-create each so it owns its assets, or retire it (converting
-  the owning test does not clear the refusal).
+- Identify copy/paste-derived tests early. A pasted copy that ALM gave its own
+  asset records (Phoenix checks this) converts from them: the scan report
+  counts it under *Pasted copies*, and its notes name its original. Plan to
+  convert each with its original and park neither on its own — how UFT runs a
+  converted copy has not been measured yet. A test that surfaces as
+  `shared-assets` owns no asset records that match its manifest: decide
+  whether to re-create it, which gives it a new test id and leaves its Test
+  Lab history behind, or retire it. Converting the other test does not clear
+  the refusal of a test that owns no records, or whose records differ from
+  its manifest in a way other than a conversion's rename. A copy whose
+  records its own conversion renamed is recognised again once its original
+  has been converted with the same actions — unless two action records of
+  either test share a description — or once its first-sight record is
+  copied into the run folder ([remediation.md](remediation.md), blocker 3).
 - Run the manual sweep for the constructs the reports do not reliably name
   (`GoTo`, `On Error GoTo <label>`, VBScript classes, and `Eval` *inside an
   expression*) — see [limitations.md](limitations.md) § *Not detected before
@@ -78,9 +89,10 @@ model), [gui_field_guide.md](gui_field_guide.md) (console reference),
   your reason, test cases you copy or move out of an ALM project or folder
   still count toward any conversion of that project or folder (license
   agreement, section 2.g; see [licensing.md](licensing.md)). Seed it so that
-  **each test owns its assets**: save each test into the pilot project from
-  UFT (Save As), or paste with the option that creates copies of related
-  entities. A copy that still points at the source test's assets is refused as
+  **each test owns its asset records**: save each test into the pilot project
+  from UFT (Save As), or paste with the option that creates copies of related
+  entities. Phoenix checks each pasted copy: one that owns records matching its
+  manifest converts from them, and one that does not is refused as
   `shared-assets` with no override. Copy the resources those tests link
   (function libraries, shared object repositories) and every callee of a
   cross-test caller, keeping the Test Plan and Resources paths the same so the
@@ -167,7 +179,14 @@ model), [gui_field_guide.md](gui_field_guide.md) (console reference),
   `--wave <wave>` as well; `restore` refuses it without and says so) —
   then purge `%LOCALAPPDATA%\Temp\TD_80` and run analysis and conversion
   under a **new** run id, which gives the second pass its own report set to
-  compare against the first. (Without the restore, a conversion under the
+  compare against the first. `restore` does not rename a converted pasted
+  copy's action records back: the new run folder still recognises a copy
+  converted with its original, but one converted while its original was
+  parked or converted differently is refused there as `shared-assets` unless
+  you first copy `alm_aom_work\alm_rollback\pasted_copy_owner_maps.json` from
+  the pilot run's folder to the same place in the new one, or return the
+  project from the server snapshot instead ([limitations.md](limitations.md)
+  § *ALM environment boundaries*). (Without the restore, a conversion under the
   earlier run id would skip every asset that run already converted, and
   re-converting a project that is already Python does not repeat the
   VBScript-to-Python translation. `restore` puts the scripts back; it does
@@ -218,11 +237,16 @@ model), [gui_field_guide.md](gui_field_guide.md) (console reference),
 
 - ALM conversion is whole-project — the entire domain/project converts as
   one unit, which keeps every call chain uniform unless you break it
-  yourself. Parking a caller whose callee still converts, or using
-  `--allow-partial-conversion`, leaves a VBScript test calling a Python
-  action; parking a *callee* is caught by the pre-flight gate, which
-  disqualifies its callers. Park whole chains only. The dependency graph is
-  still worth reading: it shows which tests call which reusable actions, and
+  yourself. Parking a caller whose callee still converts would leave a
+  VBScript test calling a Python action: the analysis reads which tests each
+  parked test calls, and the pre-flight gate refuses the callee
+  (`parked-caller`), except for a caller that only a path exclusion leaves
+  out, which the analysis never reads. Parking a *callee* is caught by the
+  gate too, which disqualifies its callers. `--allow-partial-conversion`
+  converts past both and breaks the chain. Park whole chains only; the
+  report's park list leaves out a failed asset that calls, or is called by,
+  a test it does not park, and names the tests to park with it. The
+  dependency graph is still worth reading: it shows which tests call which reusable actions, and
   cross-test callers have their external "call to existing action"
   references reconstructed natively (via `AddExistingAction`) so shareable
   actions stay in their own tests and are consumed by reference.
@@ -258,7 +282,11 @@ model), [gui_field_guide.md](gui_field_guide.md) (console reference),
   the wave; see [troubleshooting.md](troubleshooting.md) § *Native crashes
   and interrupted ALM conversions*. Conversely, to reconvert everything after a
   mapping-rule, library or configuration change, use a **new** run id: the
-  same run id would skip the assets you want rebuilt.
+  same run id would skip the assets you want rebuilt. If a pasted copy was
+  converted while its original was parked or converted differently, first
+  copy `alm_aom_work\alm_rollback\pasted_copy_owner_maps.json` from the
+  earlier run folder to the same place in the new one
+  ([limitations.md](limitations.md) § *ALM environment boundaries*).
 - A carried-forward asset still serves as a callee: the journal record it is
   carried from holds the converted action layout its callers need, so a
   caller converted later in the re-run is retargeted as usual. The one
@@ -269,7 +297,10 @@ model), [gui_field_guide.md](gui_field_guide.md) (console reference),
   Convert in a new run folder (a fresh run id, with the analysis run under
   it first) so caller and callee convert together, and keep the old run
   folder: its `alm_rollback` snapshots are the only pre-conversion
-  originals of the tests the earlier run converted.
+  originals of the tests the earlier run converted. If a pasted copy was
+  converted while its original was parked or converted differently, first
+  copy the old folder's `alm_aom_work\alm_rollback\pasted_copy_owner_maps.json`
+  to the same place in the new one.
 - `--failed-only` is the only real subset re-run and it applies to
   analysis — the filesystem `scan`/`analyze` and the ALM
   `convert --alm --dry-run`; whole-project ALM conversion rejects it outright
@@ -284,8 +315,9 @@ model), [gui_field_guide.md](gui_field_guide.md) (console reference),
   it*), and `--allow-partial-conversion`, which lets the all-or-nothing
   pre-flight gate pass while the disqualified assets stay VBScript — those
   are reported as `preflight-disqualified` failures, so a run that used it
-  cannot meet this exit. Park genuinely out-of-scope assets on Step 5
-  instead.
+  cannot meet this exit (an override over a parked test whose calls could
+  not be read adds no such failure, but holds approval all the same). Park
+  genuinely out-of-scope assets on Step 5 instead.
 
 ## 6. Distribution (filesystem estates)
 

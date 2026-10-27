@@ -139,7 +139,12 @@ beside the journal; a journal an earlier Phoenix wrote has none, and the
 reports say how many assets that leaves out. No flag turns this on. Because ALM runs
 default to the `<Domain>-<Project>` folder, a repeat conversion of the same
 project resumes unless you pass a new `--run-id` and run the analysis under
-that id first. ALM analysis never resumes and never skips an asset.
+that id first. If a pasted copy was converted while its original was parked or
+converted differently, first copy
+`alm_aom_work\alm_rollback\pasted_copy_owner_maps.json` from the earlier run
+folder to the same place in the new one
+([limitations.md](limitations.md) § *ALM environment boundaries*). ALM analysis
+never resumes and never skips an asset.
 
 A carried-forward test still serves as a callee: its journal record holds the
 converted action layout that its callers are retargeted against, so a test that
@@ -170,7 +175,13 @@ un-parked id that names no test ALM can find is left out, with the warning
 *N id(s) the previous analysis listed as parked name no test ALM could find,
 so this analysis leaves them out:* and their ids. A refresh never runs
 discovery: it carries the full analysis's test-case count, judged against
-the license installed now.
+the license installed now. For the tests it parks, a refresh keeps which
+tests each one calls where the analysis it refreshes proved it (a record that
+read the test, or an earlier read), and reads the rest from ALM, read-only
+(see `--alm-exclude-test-id` below). A `--failed-only` run that parks every
+failed test and un-parks none (the Migration Console's *Refresh Report*)
+re-analyzes nothing and reads nothing from ALM: a test it parks whose calls are not proved stays
+unread, and the conversion refuses it, until a later analysis reads it.
 
 `doctor`, `license`, `restore` and `diagnostics` do not share these options —
 each defines its own flag set (see the `doctor` examples below, *Installing a
@@ -667,7 +678,35 @@ wave**, on the conversion path as well as analysis. The test is left untouched
 in ALM, and it does not count against the run's scope-coverage check. Park whole
 call chains: if a parked test is called by a test that is still in scope, the
 caller cannot rebuild its reference and the pre-flight gate refuses the wave —
-park the caller too, or remediate instead. It is the ALM analog of
+park the caller too, or remediate instead. The other direction matters as
+much: a parked test stays VBScript, so every in-scope test whose shareable
+action it calls would break it by becoming Python. Park a test together with
+everything it calls and everything that calls it, directly or not. The gate
+refuses such a callee as `parked-caller` — and, when a parked test's call
+names no test by its full path and its name matches more than one test,
+every test of that name, rather than guess (fix that call in ALM and re-run
+the analysis) — and the analysis report already
+lists it, with the tests that call it, under *Tests Step 6 Refuses Because
+Parked Tests Call Them*. A parked test is not analyzed, so an
+analysis that parks tests first reads which tests each one calls — read-only,
+in separate processes with one ALM login per 25 parked tests, at most
+`--threads` of them at once — and keeps that for the gate; re-running the
+analysis with the test still parked reads it again. Measured live on
+2026-10-26 (316 parked tests, all read, `--threads 10`), the read took 128
+seconds: about 0.4 seconds per parked test, and about 2.5 seconds per test
+inside each reading process, its login included. Up to 25 parked tests take
+one process at about 2.5 seconds each, whatever `--threads` says; more take
+about ceil(N/25)/`--threads` rounds of roughly a minute each, so the 0.4
+seconds per test holds only for a few hundred parked tests. An analysis that parks
+nothing does no extra work. A parked test whose calls could not be read is refused under its own id
+as `parked-references-unread` until an analysis has read them (see
+[remediation.md](remediation.md)). So is a test parked on the conversion
+command line only that the analysis never saw, or that it measured but
+stopped before reading its calls (status `error`, `shared-assets`,
+`not-found`, `vc-blocked` or `process-crashed`): park the same tests in the
+analysis and the conversion. An id that names no test (mistyped, say)
+refuses nothing. A test a path filter leaves out is not read at all, so park
+whole chains there yourself. `--alm-exclude-test-id` is the ALM analog of
 `--exclude-test-path`, and the Migration Console surfaces it as Step 5's
 "Out-of-scope test IDs" parking field. Parked tests still count toward the
 free edition's limit of 100 test cases ([licensing.md](licensing.md)).
@@ -792,9 +831,22 @@ that the test passes. Do one of:
    VBScript. The gate still runs, every disqualified asset stays named in
    `alm_preflight.json`, and those assets are re-injected as in-scope
    `preflight-disqualified` failures — so a run that used the override can
-   never report a clean whole-project conversion.
-5. **Copy/paste-derived tests are refused** (`status=shared-assets`) — their
-   assets belong to the source test and conversion cannot work. See
+   never report a clean whole-project conversion. A parked test refused as
+   `parked-references-unread` is the exception: it was never part of the
+   conversion, so it gets no such row and `go_no_go` can still read `go`.
+   The override over one still fails the run: the command exits 2, and the
+   executive summary and `summarize` hold approval with the line
+   *--allow-partial-conversion was used over N parked test(s) whose calls
+   could not be read*. Gate on the exit code or `ready_for_approval` there.
+5. **A pasted copy converts only from asset records of its own.** A test whose
+   stored `Download.xml` names another test (an ALM copy/paste) converts like
+   any other test when ALM gave the copy its own asset records (Phoenix checks
+   this); its notes name the test it was copied from, and the scan report
+   counts it under *Pasted copies*. A test that owns no asset records of its
+   own, or whose records do not match its manifest, is refused
+   (`status=shared-assets`, no override). Either way Phoenix does not write
+   another test's asset records: a write to a record that ALM shows belongs to
+   a different test, or to a component, is refused. See
    [advanced_troubleshooting.md](advanced_troubleshooting.md) §1a.
 6. **Every upload is verified**: stale server files are removed from a real
    server listing, asset ownership is repaired so UFT runs the Python, and
@@ -847,8 +899,10 @@ that the test passes. Do one of:
     conversion again; the new attempt checks any test the crash may have left
     half-written against the wave's copy, and restores it from that copy if it
     differs, before it converts anything. The third crash while the same test
-    is in flight, the sixth in the wave, or the second in a row outside any
-    test aborts the wave and rolls it back as item 9 describes. See
+    is in flight, the wave's crashes reaching its crash budget (6 plus 2 % of
+    the tests it has begun converting, rounded down: 7 at 50 tests, 12 at
+    348), or the second in a row outside any test aborts the wave and rolls it
+    back as item 9 describes. See
     [advanced_troubleshooting.md](advanced_troubleshooting.md) §9.
 
 ### What conversion carries automatically (ALM mode)
@@ -1065,7 +1119,10 @@ In the run folder, after an ALM analysis or conversion:
   ([licensing.md](licensing.md) § *The scoping summary and the consultation
   request form*).
 - `alm_aom_results.json` — per-test statuses, blockers, upload verification and
-  Test Lab run ids. The authoritative per-asset payload.
+  Test Lab run ids. The authoritative per-asset payload. An analysis that parks
+  tests adds `parked_references`: for each parked test, which tests it calls,
+  or why that could not be read. The pre-flight gate reads it; nothing counts
+  it as a test result.
 - `alm_analysis_results.json` — the analysis payload frozen when the pre-flight
   gate passed, so the conversion cannot overwrite the evidence that authorised
   it.
@@ -1091,7 +1148,11 @@ In the run folder, after an ALM analysis or conversion:
   the true originals and what `restore` reads:
   `test_<id>_source` is each test's first-sight copy,
   `waves\<wave>\test_<id>\` the copy each conversion wave froze, which crash
-  recovery, the wave's rollback and `restore --wave` use, and
+  recovery, the wave's rollback and `restore --wave` use,
+  `pasted_copy_owner_maps.json` the record Phoenix makes of each pasted
+  copy's own asset records the first time it sees the copy, which a restore
+  of a converted copy uses and which recognising a copy converted without its
+  original depends on, and
   `resources\<wave>\<test id>\` the bytes of each `.pfl` library a wave
   replaced. Each write's "prior copy" holds the bytes THAT write replaced; the
   scan report's shared-library section also names, per library, the copy that

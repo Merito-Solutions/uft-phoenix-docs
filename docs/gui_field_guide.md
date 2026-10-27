@@ -587,7 +587,12 @@ Three things follow from this one field:
   later conversion in the same folder carries forward — does not reconvert —
   every test an earlier conversion there uploaded and verified that is still
   Python on the server. To reconvert those tests, for example after relinking
-  a library, enter a new Analysis Run ID, run the analysis, then convert.
+  a library, enter a new Analysis Run ID, run the analysis, then convert. If a
+  pasted copy was converted while its original was parked or converted
+  differently, first copy
+  `alm_aom_work\alm_rollback\pasted_copy_owner_maps.json` from the old run
+  folder to the same place in the new one
+  ([limitations.md](limitations.md) § *ALM environment boundaries*).
   Ticking *Overwrite previous analysis outputs* does not clear the journal.
 - **A custom ID is not remembered.** Reopen the console, or click a Step 2
   choice again (even the one already selected), and the field returns to the
@@ -610,7 +615,10 @@ the run log that names every overwritten lock. Phoenix now keeps them: when the
 last run in the folder was a conversion, only the analysis report set is
 cleared, and the status line says so. To keep the whole conversion record
 intact, copy the run folder somewhere safe or use a new Analysis Run ID before
-re-analyzing.
+re-analyzing. If a pasted copy was converted while its original was parked or
+converted differently, first copy
+`alm_aom_work\alm_rollback\pasted_copy_owner_maps.json` from the old run
+folder to the same place in the new one.
 
 This box has nothing to do with resuming. Resuming is offered separately: if an
 interrupted run for the same Analysis Run ID with the same inputs is found (a
@@ -651,8 +659,11 @@ Output…* has no build to open (see *Over the free-edition limit* below).
 here (comma-, space-, or newline-separated; text after `#` is ignored) leave
 the scope entirely for this wave — not analyzed, not converted, not counted
 as failures, left untouched in ALM. Fill it from the report's **Park the
-Failed Assets** list (see *Parking failed assets* below). Parked tests still
-count toward the free edition's limit of 100 test cases.
+Failed Assets** list (see *Parking failed assets* below). Park a test
+together with every test it calls and every test that calls it: a parked
+test stays VBScript, and **Convert Project** refuses to turn a test it calls
+into Python. Parked tests still count toward the free edition's limit of 100
+test cases.
 
 **Out-of-scope tests** *(filesystem)* — the same parking idea for on-disk
 tests: one entry per line (or comma-separated) — a test folder name, a
@@ -665,6 +676,24 @@ blocker/warning per file, builds the dependency graph, and produces the
 readiness reports. **Always analyze before converting** — the conversion
 step refuses to run without a current analysis (*Analysis Required*), and
 refuses again if an input changed since.
+
+When *Out-of-scope test IDs* lists tests, the analysis first reads which tests
+each of them calls, before it analyzes anything else. A parked test stays
+VBScript, and **Convert Project** must not turn a test it calls into Python;
+this read is how the conversion checks that. It is read-only, like the rest of
+the analysis, and the CLI Output shows it as *reading which tests N parked
+test(s) call (read-only)*, then how many it read. Measured on a live server
+(316 parked tests, 2026-10-26), it took about 0.4 seconds per parked test
+with 10 workers (*Threads*), just over two minutes in all, and about 2.5
+seconds per test for each reading process, its ALM login included. Each
+reading process reads up to 25 parked tests, and up to *Threads* of them run
+at once: up to 25 parked tests take about 2.5 seconds each whatever the
+*Threads* (one process reads them all), and more take about one round of
+roughly a minute per *Threads* reading processes, so 0.4 seconds per test
+holds only for a few hundred parked tests. With nothing parked it takes no
+time at all. If some
+cannot be read, the CLI Output names them, and the report lists them as
+needing manual intervention (see *Parking failed assets* below).
 
 What happens next depends on the verdict and the workflow:
 
@@ -763,7 +792,17 @@ re-measure, so the run just rewrites the report over the assets that remain in
 scope; that needs no ALM work and is near-instant — unless you also removed an
 ID from the field since the previous analysis, whose test the refresh then
 analyzes. Park only some of them and the button stays **Re-analyze Failed
-Assets (M)** and re-measures the rest.
+Assets (M)** and re-measures the rest; it also reads which tests each
+parked test calls, where the previous analysis did not already prove it.
+Because **Refresh Report** reads nothing from ALM, it cannot read that either:
+when you park a failed asset whose analysis stopped before it read the test's
+calls (status `error`, `not-found`, `vc-blocked`, `process-crashed` or
+`shared-assets`), the
+refreshed report lists it under *Parked Tests That Need Manual
+Intervention*, and **Convert Project** is refused until **Run Analysis** has
+read it. And when a test you park calls a test that passed, the refreshed
+report lists that test under *Tests Step 6 Refuses Because Parked Tests Call
+Them*: park the whole call chain, or none of it.
 
 **Cancel** — stops the running analysis (the whole process tree). On the UFT
 FileSystem workflow, re-running with the same Analysis Run ID offers to resume
@@ -835,8 +874,12 @@ Phoenix, before that layout was recorded, differs: a test that calls a test
 carried forward from it is refused because the called test has no conversion
 record in this run, which stops the run again. If that happens, enter a new
 Analysis Run ID, run Analysis there, then convert — a fresh run folder carries
-nothing forward, so caller and callee convert together. Use *Re-analyze Failed
-Assets* to refresh the report.
+nothing forward, so caller and callee convert together. If a pasted copy was
+converted while its original was parked or converted differently, first copy
+`alm_aom_work\alm_rollback\pasted_copy_owner_maps.json` from the old run
+folder to the same place in the new one
+([limitations.md](limitations.md) § *ALM environment boundaries*). Use
+*Re-analyze Failed Assets* to refresh the report.
 
 ### Parking failed assets
 
@@ -847,8 +890,12 @@ park them rather than converting them:
    Assets drill-down page). It lists every failed asset that is *safe to
    park*, one ALM test ID per line with the asset name and its failure
    category as a `#` comment. Assets the failed-assets page marks *do not
-   park* are withheld from the block, so it — and the **Copy all N failed
-   IDs** count on it — can be shorter than the failed-asset count.
+   park* are withheld from the block, and so is a failed asset whose calls
+   tie it to tests the block does not park (it calls them, or they call
+   it): its row reads *park only together with* and the IDs of every other
+   test in its call chain. So the block,
+   and the **Copy all N failed IDs** count on it, can be shorter than the
+   failed-asset count.
 2. Press **Copy all N failed IDs**.
 3. Paste into **Out-of-scope test IDs**, right here on Step 5 (Risk
    Analysis). The field keeps the IDs and ignores the comments, so you can
@@ -878,6 +925,31 @@ third it does not refuse — it simply does not clear the gate:
   assets (*Hold conversion approval — cross-test dependency graph*). A
   shareable-action chain converts as one unit — park the whole chain or none of
   it, and restore the missing callee if you have already parked it.
+  The other direction — parking a failed test that *calls* surviving tests —
+  would leave the parked caller, still VBScript, calling tests that the
+  conversion turns into Python. If you park one, the refreshed report can
+  still come back **go**, because a parked test is not analyzed, but
+  **Convert Project** is refused before it writes anything: the analysis
+  reads which tests each parked test calls, and the pre-flight gate refuses
+  each surviving test a parked test calls (`parked-caller`) and the tests
+  that call those. The report says so: it lists each of those tests under
+  *Tests Step 6 Refuses Because Parked Tests Call Them* (below). Park the
+  whole chain: the caller, every test it calls, directly or not, and every
+  other test that calls them.
+  So the **Park the Failed Assets** block leaves out, in both directions, a
+  failed asset whose shareable-action calls tie it to in-scope tests the
+  block does not park (tests that passed, or that are *do not park*),
+  directly or through other tests. It counts a call the way the pre-flight
+  gate will once the asset is parked: a call that names no test by its full path
+  (the test it called may have moved or been renamed) and whose name matches
+  more than one test ties the asset to every test of that name, since the
+  gate refuses each of them rather than guess which one the call means. On
+  the failed-assets page its row shows
+  *park only together with* and the IDs of every other test in its call
+  chain where the **Exclude**
+  checkbox would be, and a note under the block names each such asset with
+  its partners. Fix the asset, or park it together with every test named
+  beside it, typing their IDs into *Out-of-scope test IDs* yourself.
 - **A failed asset the report marks *do not park*.** Assets whose status is
   `shared-assets`, `rolled-back` or `rollback-failed` are withheld from the
   **Park the Failed Assets** block, and the failed-assets page shows *do not
@@ -890,13 +962,72 @@ third it does not refuse — it simply does not clear the gate:
   running it from Test Lab): fix the asset that aborted the run — named in the
   run summary — and re-run the whole conversion. `rollback-failed` is still
   sitting converted in ALM and is the one asset a human must open.
-  `shared-assets` means the test's actions are owned by another test, so it has
-  nothing of its own to convert: re-create it in ALM so it owns its actions.
-  Converting the owning test does not clear it — the ownership check runs at
-  download time. Never park a `shared-assets` caller on its own — its owner
-  converts in any run that proceeds, leaving a VBScript test loading Python
-  actions, a chain that resolves but does not execute. If every failure is a
-  *do not park* status, the block is not rendered at all.
+  `shared-assets` means the test owns no asset records of its own, or its
+  records do not match its manifest; the error names the other test.
+  Converting that test does not clear a test that owns no records, or one
+  whose records differ from its manifest in a way other than a conversion's
+  rename: re-create such a test in ALM so it owns its records, which gives it
+  a new test id and leaves its Test Lab history with the old one, or retire it
+  ([remediation.md](remediation.md), blocker 3). A copy whose records its own
+  conversion renamed is recognised again once its original has been converted
+  with the same actions — unless two action records of either test share a
+  description, which the reason names — or once its first-sight record is
+  copied into the run folder
+  ([advanced_troubleshooting.md](advanced_troubleshooting.md) §1a).
+  Never park a `shared-assets` test on its own — the other test converts in
+  any run that proceeds, leaving the two in different languages. If every
+  failure is a *do not park* status, the block is not rendered at all.
+
+A pasted copy that ALM gave its own asset records (Phoenix checks this) is not
+a failure at all: it analyzes `ok`, converts from its own records, and the scan
+report counts it in a *Pasted copies* row. Nothing stops you typing its ID into
+**Out-of-scope test IDs**, but until a live run has measured how UFT runs a
+converted copy, do not park a pasted copy while its original converts, or the
+original while the copy converts.
+
+**Parked tests that need manual intervention.** When Phoenix could not read
+which tests a parked test calls, **Scan HTML** shows *Conversion blocked: N
+parked test(s) need manual intervention* in a section headed *Parked Tests
+That Need Manual Intervention*, just before the **Recommended Remediation
+Queue**; the Failed Assets drill-down page opens with the same section. Each
+row names the test and its ALM path, says why its calls were not read (with
+an error id, when there is one, for Merito support) and what to do. A report
+written for a run folder whose analysis an earlier Phoenix build made lists
+here every test that analysis parked, by ID alone (it kept no name or path
+for a parked test), because that build did not read which tests a parked
+test calls. Until each one is resolved, **Convert Project** is refused, with
+nothing written:
+whether the parked test calls a test the conversion would turn into Python is
+unknown, and the console has no override. What to do depends on the reason:
+
+- *Refresh Report does not read ALM*, or the analysis was made by an earlier
+  Phoenix build: press **Run Analysis** with the test still parked.
+- The analysis could not read the test from ALM: press **Run Analysis**
+  again. If it fails the same way, ALM cannot give this test's definition:
+  delete the test in ALM if it is no longer used, or remove it from
+  *Out-of-scope test IDs* and fix it there.
+- ALM did not find the test: if it was deleted, **Run Analysis** no longer
+  lists it; if not, run it again to read the test again.
+
+A test in a `.TrashCan` or `Recycle Bin` folder is never listed, since it does
+not run. When every parked test was read, the section is not there.
+
+**Tests Step 6 refuses because parked tests call them.** When a parked test
+calls a test that passed the analysis, **Scan HTML** shows *Conversion
+blocked: Step 6 refuses N in-scope test(s) that parked tests call* in a
+section headed *Tests Step 6 Refuses Because Parked Tests Call Them*, after
+the parked tests that need manual intervention; the Failed Assets drill-down
+page shows the same section. The verdict can still read **go**, because these
+tests passed the analysis, but **Convert Project** refuses each of them
+before it writes anything. Each row names the test and its ALM path, says
+which parked test calls it, or may call it through a call that matches more
+than one test (or, for a test that calls one of them, which of them it
+calls), and gives the pre-flight gate's refusal word for word, as
+*Conversion Failed* would show it. A test that failed the analysis for a
+reason of its own is not listed again here. To clear the section, fix the
+parked test and remove it from *Out-of-scope test IDs*, or park the tests it
+lists with it (the whole call chain), then press **Run Analysis**. When no
+parked test calls a test that would convert, the section is not there.
 
 This parking flow is **ALM-only**. The filesystem workflow's **Out-of-scope
 tests** field takes tests out of the *conversion* wave — those tests are not
@@ -990,6 +1121,34 @@ converts, is refused that way only after it has rescanned them, so Step 5's
 reports and scoping summary are new, and the run can no longer be resumed
 ([usage.md](usage.md) § *The free-edition limit*).
 
+**Refused by the pre-flight gate.** Before it writes anything, an ALM
+conversion checks the whole project against the analysis. When any test
+cannot be converted, *Conversion Failed* says *Pre-flight gate FAILED: N of M
+asset(s) in this run cannot be converted. NO ALM WRITES WERE PERFORMED*, then
+one line per reason with an example, and names `alm_preflight.json`, which
+lists every test with its reason ([remediation.md](remediation.md) §
+*Pre-flight gate refusals*). Two reasons come from parking. `parked-caller`:
+a parked test calls this test and stays VBScript, so this test must stay
+VBScript too — park it with its whole call chain, or fix and un-park the
+caller. A parked test may also call it through a call that names no test by
+its full path and whose name matches more than one test: the gate refuses
+each of those tests rather than guess, and the reason starts *May be called
+by a parked test … through a call that matches more than one test* (or,
+when a known parked caller also calls it, continues with *It may also be
+called through a call that matches more than one test*). Fix that
+call in ALM so it names its test by full path and press **Run Analysis**
+again, or park the chain whole. The analysis report lists it, with the
+tests that call it (`callee-disqualified`), under *Tests Step 6 Refuses
+Because Parked Tests Call Them* (Step 5, *Parking failed assets*). `parked-references-unread`:
+Phoenix could not read which tests a parked test calls; the analysis report
+lists it under *Parked Tests That
+Need Manual Intervention* (Step 5, *Parking failed assets*). Re-running the
+analysis with the same tests parked does not clear `parked-caller` when the
+caller is in *Out-of-scope test IDs*: the analysis reads each parked test's
+calls again. A caller left out by *Path Exclusions* or *Path Inclusions* is
+never read, so park
+call chains whole there yourself.
+
 An ALM conversion runs under a crash supervisor. If Windows ends the conversion
 process (a native crash), the supervisor records the crash, cleans up and
 starts the conversion again. From then on the progress label and the status
@@ -1055,7 +1214,11 @@ Restarting afterwards differs by workflow:
   carried-forward test is refused because the called test has no conversion
   record in this run, and the run stops. If that happens, enter a **new**
   Analysis Run ID, run Analysis there, then convert — a fresh run folder
-  carries nothing forward, so caller and callee convert together.
+  carries nothing forward, so caller and callee convert together. If a pasted
+  copy was converted while its original was parked or converted differently,
+  first copy `alm_aom_work\alm_rollback\pasted_copy_owner_maps.json` from the
+  old run folder to the same place in the new one
+  ([limitations.md](limitations.md) § *ALM environment boundaries*).
 
 **Compare Converted Output…** — side-by-side diff viewer: original VBScript
 on the left, converted Python on the right, changes shaded. Pick the

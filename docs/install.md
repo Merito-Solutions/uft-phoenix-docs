@@ -268,6 +268,17 @@ you launch Phoenix from. Installed licenses are kept: they live in
 `licenses\`, which an upgrade does not touch, and in each user's
 `%LOCALAPPDATA%\Merito\UFT Phoenix\licenses\`.
 
+**After upgrading, run the analysis again before converting a project in which
+you parked tests** (*Out-of-scope test IDs* in the Migration Console,
+`--alm-exclude-test-id` on the command line). This build reads, during the
+analysis, which tests each parked test calls, so that a conversion never
+turns into Python a test that a parked VBScript test still calls. An analysis
+made by an earlier build did not read that, so a conversion judged on it
+refuses each parked test with the reason `parked-references-unread` (*made by
+an earlier Phoenix build*) and writes nothing. *Refresh Report* does not read
+ALM and cannot clear this: press **Run Analysis**. A run folder whose analysis
+parked nothing needs nothing.
+
 ## Where to launch Phoenix from
 
 Phoenix writes each run into `out\<run id>` **under the directory it was

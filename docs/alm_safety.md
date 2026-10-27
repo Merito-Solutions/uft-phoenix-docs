@@ -24,7 +24,14 @@ complete inventory of those writes.
    covers it, a Deep analysis deletes each local build once it is checked and
    measured ([licensing.md](licensing.md)); an analysis still makes zero ALM
    writes. Neither depth prints a list of the files that would be uploaded
-   or of the stale server files that would be deleted. On the CLI a dry run
+   or of the stale server files that would be deleted. An analysis that parks
+   tests (*Out-of-scope test IDs*) also reads which tests each parked test
+   calls, so that the pre-flight gate (item 4) can refuse a conversion that
+   would break one. That read is read-only too: it finds the test, downloads
+   its definition to `alm_aom_work\parked_references\` in the run folder
+   (removed after the read) and reads its `Test.tsp`. It checks nothing out,
+   clears no lock, builds nothing, reads no asset record's owner and writes
+   nothing to ALM. On the CLI a dry run
    does not require `--confirm-alm-backup`; the GUI takes the backup
    confirmation earlier — the checkbox is on Step 3 and the ALM workflow will
    not advance past Step 3 without it, so Analysis (Step 5) is unreachable
@@ -46,8 +53,16 @@ complete inventory of those writes.
    disqualified when it has no analysis record, when its analysis failed, when
    it still has unresolved blockers, when a cross-test action reference is
    unresolved, ambiguous, self-referencing or part of a reference cycle, when a
-   test it calls is itself disqualified, or when it was analyzed but this run's
-   discovery no longer returns it. Every reason is written to
+   test it calls is itself disqualified, when a test in Out-of-scope test IDs
+   calls it, or a path-excluded test the analysis measured (`parked-caller`:
+   the parked test stays VBScript; when such a call names no test by its full
+   path and its name matches several tests, each of them is refused rather
+   than guessed), or when it was analyzed but this run's
+   discovery no longer returns it. A caller that a path filter left out of the
+   analysis is not checked ([limitations.md](limitations.md)). A parked test whose
+   calls could not be read is refused under its own id
+   (`parked-references-unread`), because whether it calls a converting test
+   is unknown. Every reason is written to
    `alm_preflight.json` in the run folder. A conversion started under a fresh
    run id has no analysis to be judged against, so every asset reads
    `not-analyzed` and the run is refused (`preflight-failed`). A rehearsal
@@ -75,7 +90,10 @@ complete inventory of those writes.
    assets anyway. It knowingly leaves the project half Python and half
    VBScript — which breaks cross-test action chains and poisons later
    conversion attempts — and the assets it skipped stay reported as
-   `preflight-disqualified` failures. Do not use it on a production project.
+   `preflight-disqualified` failures. A parked test refused because its calls
+   could not be read stays VBScript either way, and the override over one
+   still holds approval in the executive summary. Do not use it on a
+   production project.
    A foreign checkout is only a *warning* at this gate: the conversion undoes
    it during the upload, and only a checkout Phoenix lacks the permission to
    undo becomes `vc-blocked` and stops the run (item 8).
@@ -203,8 +221,10 @@ complete inventory of those writes.
     evidence and starts the conversion again. Before the new attempt converts
     anything, it compares each test that may be half-written with the copy
     this conversion wave froze before changing it, and restores it from that
-    copy if they differ. Three crashes on one test, six in the wave, or two in
-    a row outside any test end automatic recovery: the wave is aborted and
+    copy if they differ. Three crashes on one test, two in a row outside any
+    test, or the wave's crash budget — six crashes, plus one for every 50 tests
+    the wave has begun converting (2 %, rounded down) — end automatic
+    recovery: the wave is aborted and
     rolled back (see **Rolling back**). Function-library writes are not part of this:
     see [limitations.md](limitations.md) § *Crash recovery (ALM upload
     conversions)*, and [advanced_troubleshooting.md](advanced_troubleshooting.md)
@@ -312,7 +332,12 @@ converted (never an asset skipped because an earlier run had already
 converted it), and it writes to Test Lab: it creates the folder named by
 `--alm-test-lab-folder` (default `Root\UFT Phoenix`), a test set named
 `AOM Verification <timestamp>` unless `--alm-test-set-name` says otherwise,
-one test instance per converted test, and then launches the runs.
+one test instance per converted test, and then launches the runs. A named
+set that already holds a test reuses its instance, and only a run newer than
+that instance's last run is taken as the result, judged by that run's own
+status (the instance's status can still be the earlier run's), so a test
+the scheduler finished without running reads `No Run`, never the earlier
+run's result.
 
 ## Interrupting and resuming
 
@@ -389,7 +414,11 @@ one test instance per converted test, and then launches the runs.
   summary, so the report does not claim this run did that work. To force a full reconversion, run the
   analysis again under a new run id and convert in that same run folder — a
   conversion started in a run folder that holds no analysis is refused
-  outright (item 4).
+  outright (item 4). If a pasted copy was converted while its original was
+  parked or converted differently, first copy
+  `alm_aom_work/alm_rollback/pasted_copy_owner_maps.json` from the earlier run
+  folder to the same place in the new one
+  ([limitations.md](limitations.md) § *ALM environment boundaries*).
 - ALM analysis keeps no per-asset checkpoint, so an interrupted analysis runs
   again in full. **Re-analyze Failed Assets** (`--failed-only`) needs a
   *completed* analysis in that run folder.
@@ -402,7 +431,10 @@ one test instance per converted test, and then launches the runs.
   this run", and the run aborts and rolls back what it uploaded. Run the
   analysis again under a **new run id** and convert in that run folder, so
   caller and callee convert together, and keep the old run folder for its
-  `alm_rollback` snapshots.
+  `alm_rollback` snapshots. If a pasted copy was converted while its original
+  was parked or converted differently, first copy
+  `alm_aom_work/alm_rollback/pasted_copy_owner_maps.json` from the old run
+  folder to the same place in the new one.
 - If a cancel or a crash landed mid-upload, the test that was in flight has an
   `upload-started` record and none that it finished, and its action scripts
   may already have been deleted before the new payload was saved. Do not run
@@ -443,17 +475,24 @@ like an upload — downloaded again and compared byte for byte with the copy it
 put back — with two exceptions: lock files (`*.lck`, such as
 `Default.xls.lck`), which come and go from one download of a test to the next,
 are left out, and `Download.xml` may come back with other content, though a
-restore that does not put it back fails when the frozen copy has one. Those assets end up
-reported `rolled-back` (the asset whose crashes ran the budget out keeps
-`process-crashed`), or `rollback-failed` where the restore could not be
-verified or the wave's copy is missing or damaged. Open every
-`rollback-failed` asset in ALM; the `alm-rollback-asset` events in
-`migration_log.txt` name them. While any of them is not restored, the wave
-stays open, and the next conversion in that run folder stops and names each
-one with its `restore --wave` command. The automatic rollback covers only the
-wave's own writes: assets carried forward from an earlier, finished wave or
-from Phoenix 1.1.4 or earlier stay converted, and a Cancel itself rolls
-nothing back. It has the same limits as `restore` below.
+restore that does not put it back fails when the frozen copy has one. A
+converted pasted copy — a test ALM copied from another, converted from its own
+asset records — has its action records re-pointed by record id, through the
+record Phoenix made of them the first time it saw the copy:
+`out/<RUN_ID>/alm_aom_work/alm_rollback/pasted_copy_owner_maps.json`. Keep that
+file with the rollback snapshots. Without it, a restore that cannot place every
+one of the copy's action records fails instead of reporting success. Those
+assets end up reported `rolled-back` (the asset whose crashes ran the budget
+out keeps `process-crashed`), or `rollback-failed` where the restore could not
+be verified, the wave's copy is missing or damaged, or a pasted copy's action
+records could not all be placed. Open every `rollback-failed` asset in ALM;
+the `alm-rollback-asset` events in `migration_log.txt` name them. While any of
+them is not restored, the wave stays open, and the next conversion in that run
+folder stops and names each one with its `restore --wave` command. The
+automatic rollback covers only the wave's own writes: assets carried forward
+from an earlier, finished wave or from Phoenix 1.1.4 or earlier stay
+converted, and a Cancel itself rolls nothing back. It has the same limits as
+`restore` below.
 
 Rollback paths, in order of preference:
 
@@ -487,7 +526,10 @@ Rollback paths, in order of preference:
    the analysis under the same Analysis ID. Because the GUI converts into the
    analysis run folder, after a Deep analysis the snapshot holds what ALM had
    at *analysis* time; if tests may have changed in ALM since then, run the
-   analysis again under a new Analysis ID before converting. The sibling
+   analysis again under a new Analysis ID before converting. If a pasted copy
+   was converted while its original was parked or converted differently,
+   first copy `alm_aom_work/alm_rollback/pasted_copy_owner_maps.json` from the
+   earlier run folder to the same place in the new one. The sibling
    `alm_aom_work/test_<id>_source/` is the transient staging tree (it is
    deleted and re-downloaded on every attempt, so a later attempt in the same
    run folder replaces the original VBScript with the converted payload); it

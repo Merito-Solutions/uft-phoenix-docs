@@ -401,7 +401,12 @@ folder.
     default `Domain-Project` ID — skips every test that run already converted
     and is still Python on the server, which is exactly the tests you need to
     rebuild. Run analysis and then conversion under a **new run ID** (a new
-    Analysis Run ID in the Migration Console, `--run-id` on the CLI). On a
+    Analysis Run ID in the Migration Console, `--run-id` on the CLI). If a
+    pasted copy was converted while its original was parked or converted
+    differently, first copy
+    `alm_aom_work\alm_rollback\pasted_copy_owner_maps.json` from the earlier
+    run folder to the same place in the new one
+    ([limitations.md](limitations.md) § *ALM environment boundaries*). On a
     filesystem conversion, convert those tests again with Overwrite Policy
     `backup` or `overwrite`, or into a new output root: the default, `fail`,
     refuses to overwrite what is already there.
@@ -434,7 +439,10 @@ folder.
   onward. Library links are written into the converted script at conversion
   time, and a later relink does not update them. Change library *content*
   rather than links, or convert again under a new run ID and clear
-  `%LOCALAPPDATA%\Temp\TD_80` on every execution host. See
+  `%LOCALAPPDATA%\Temp\TD_80` on every execution host. If a pasted copy was
+  converted while its original was parked or converted differently, first
+  copy `alm_aom_work\alm_rollback\pasted_copy_owner_maps.json` from the
+  earlier run folder to the same place in the new one. See
   [limitations.md](limitations.md) § *Library links are fixed when a test is
   converted*.
 - **A test takes roughly 6-15 s longer per run than its VBScript baseline**
@@ -550,7 +558,32 @@ what it uploaded. `--allow-blockers` does not clear it. There are two causes:
   the analysis again under a **new run id** (in the console, enter a new
   Analysis Run ID on Step 5 and run Analysis), then convert in that run folder
   so caller and callee convert together. Keep the old run folder: its
-  `alm_rollback` folder holds the pre-conversion originals.
+  `alm_rollback` folder holds the pre-conversion originals. If a pasted copy
+  was converted while its original was parked or converted differently, first
+  copy that folder's `pasted_copy_owner_maps.json` to the same place in the
+  new run folder ([limitations.md](limitations.md) § *ALM environment
+  boundaries*).
+
+### "the source test shared object repositories could not be harvested … refusing to rebuild without them"
+An asset ends `aom-build-failed` with an error that reads *the source test
+shared object repositories could not be harvested (<fault>); refusing to
+rebuild without them because the source associates <repository>.tsr* — or
+*because the source could not be read to rule one out (<error>)*. UFT could
+not tell Phoenix which shared object repositories the test's actions use.
+Phoenix already retried that read on a known transient fault, noting each
+try as *object-repository harvest hit a transient UFT/COM fault (attempt
+n/3), retrying: …*. The test's own files show it uses a shared repository, or
+could not be read. Converting it anyway would give a test that uploads and
+verifies clean, then finds none of the repository's objects at run time, so
+Phoenix stops instead.
+
+The run treats the failure as transient: it converts the test again, up to
+twice. If it still fails, the conversion stops like any other failed asset and
+rolls back what it uploaded (see *"Post-upload verification failed"* below for
+how to read the statuses). Check UFT's health and licenses on the conversion
+machine (`uft-migrate doctor`), then run the conversion again. If the same test
+keeps failing, open it in UFT and check that its repository associations
+(*Resources → Associate Repositories*) and the `.tsr` resource itself load.
 
 ### "Post-upload verification failed" (status `upload-verify-failed`)
 After every upload Phoenix re-downloads the test and compares it with the built
@@ -623,8 +656,12 @@ carries forward the tests already converted.
   `crash.json` names (`"wer"` > `"dump"`), and Windows replaces the oldest
   dumps there (it keeps 10 by default).
 - **Recovery stopped at the crash budget** — the third crash while the same
-  test was in flight, the sixth in the wave, or the second in a row outside any
-  test. The supervisor aborts the wave: the test that was in flight, if any,
+  test was in flight, the wave's crashes reaching its crash budget, or the
+  second in a row outside any test. The wave's crash budget is 6 plus 2 % of
+  the tests it has begun converting, rounded down (7 at 50 tests, 12 at 348);
+  each relaunch message states it and how it was reached. A wave an earlier
+  version of Phoenix opened keeps a fixed 6. The supervisor aborts the wave:
+  the test that was in flight, if any,
   ends `process-crashed` (report category *Crashed the conversion process
   repeatedly*), and everything the wave wrote is rolled back from its copies,
   callers first; each asset's status says whether its restore worked

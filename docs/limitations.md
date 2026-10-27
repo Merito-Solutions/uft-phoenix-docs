@@ -207,7 +207,8 @@ What is re-applied in **both** conversion paths:
 What **only ALM project conversion** re-applies:
 
 - the per-action shared-repository (`.tsr`) associations — subject to the open
-  defect documented below
+  defect documented below; a test whose associations UFT cannot read, and
+  which uses one, fails rather than converting without it
 - six `Settings.Run` fields: iteration mode, start and end iteration, on-error
   behaviour, object sync timeout, disable smart identification
 - the associated add-in set
@@ -314,6 +315,23 @@ reusable-action chains are both common.
 ALM project conversion **reports** this per asset rather than dropping it
 silently — look for `[warning] shared object repository NOT carried into the
 rebuilt test: <repository>` in the conversion notes.
+
+A related case is now refused rather than converted. To carry a test's shared
+repositories, the conversion first asks UFT which ones each action uses. When
+UFT fails that read with one of its known transient faults (a license or COM
+hiccup), Phoenix tries it up to twice more, noting each retry as
+`object-repository harvest hit a transient UFT/COM fault (attempt n/3),
+retrying: …`. If the read still fails, Phoenix reads the downloaded source
+test's action files itself. A test that names a `.tsr` there, or whose files
+cannot be read, fails with `aom-build-failed` (*the source test shared object
+repositories could not be harvested (…); refusing to rebuild without them
+because the source associates <repository>…*). Earlier versions converted it
+without its repository, and it failed only at run time. A test that names none
+converts as before, with a note that its shared repositories could not be
+harvested. One silent case remains. If UFT answers the read but cannot read
+one action's repositories, that action's repositories are missing from the
+answer, and the warning above does not fire for them, because it checks the
+build only against what the read returned.
 
 **Do not check for this in ALM — it will lie to you.** The ALM *asset relation*
 between the test and the `.tsr` resource **survives** even when the action-level
@@ -573,7 +591,11 @@ conversion rewrites both blocks.
      it continues the run's conversion wave if that is unfinished — and skips
      every test it already converted that is still Python on the server,
      including the test you relinked, and re-running the analysis under that
-     same ID does not clear the record.
+     same ID does not clear the record. If a pasted copy was converted while
+     its original was parked or converted differently, first copy
+     `alm_aom_work\alm_rollback\pasted_copy_owner_maps.json` from the earlier
+     run folder to the same place in the new one (*ALM environment
+     boundaries*, below).
    - **ALM, if a resumed run stops on a cross-test reference:** a test carried
      forward from an interrupted run still serves as a callee, so its callers
      convert as usual. The exception is a run folder whose journal an earlier
@@ -588,6 +610,9 @@ conversion rewrites both blocks.
      see [troubleshooting.md](troubleshooting.md). Keep the old run folder — the
      snapshots in its `alm_aom_work\alm_rollback` directory are the only
      pre-conversion originals of the tests converted before the interruption.
+     That directory also holds `pasted_copy_owner_maps.json`: copy it to the
+     same place in the new run folder first if a pasted copy was converted
+     while its original was parked or converted differently.
    - **Filesystem:** convert the test again; its links are read through UFT.
 3. **Clear the cache on every execution host before the next run**, using the
    command in [advanced_troubleshooting.md](advanced_troubleshooting.md) §1c, so
@@ -597,9 +622,63 @@ conversion rewrites both blocks.
 
 ## ALM environment boundaries
 
-- **Copy/paste-derived tests** are refused (`shared-assets`): ALM clipboard
-  copies share the source test's asset ownership and cannot be converted in
-  place. See [advanced_troubleshooting.md](advanced_troubleshooting.md) §1a.
+- **How UFT runs a converted pasted copy has not been measured yet.** A test
+  whose stored `Download.xml` names another test (an ALM copy/paste) converts
+  like any other test when ALM gave the copy its own asset records (Phoenix
+  checks this): it is converted from those records, its notes name the test it
+  was copied from, and the scan report counts it under *Pasted copies*. On the
+  one ALM server measured, all 230 pasted copies had records of their own.
+  Phoenix leaves the copy's stored `Download.xml`, which still names the
+  original, as the paste left it, and no live run has yet shown how UFT runs
+  the converted copy. Until one has, convert a pasted copy together with its
+  original: do not park one of them while the other converts.
+- **A pasted copy converted without its original depends on its first-sight
+  record.** The first analysis or conversion in a run folder that sees a
+  pasted copy records, by record id, which of the copy's asset records stands
+  for each entry in its manifest, in
+  `alm_aom_work\alm_rollback\pasted_copy_owner_maps.json`. A conversion renames
+  a copy's action record when the rebuild moves the action to another folder,
+  and a restore does not rename it back. In a run folder that does not hold
+  the file — a new run ID, or a folder the file was deleted from — Phoenix
+  still recognises a copy converted with its original: it pairs the copy's
+  records with the original's, which that conversion renamed alike, unless
+  two action records of either test share a description. A copy converted
+  while its original was parked or converted differently, or one whose action
+  records share a description, has only
+  the file to tie it to its manifest: without it the copy is refused as
+  `shared-assets`, which stops the whole conversion, and a restore that cannot
+  place every one of its action records fails. Keep the file with the rollback
+  snapshots, and before you analyze such a copy in another run folder, copy
+  the file to the same place there.
+- **Tests that do not own matching asset records are refused**
+  (`shared-assets`, no override): a test that owns no asset records of its
+  own, or whose records do not match its manifest. The error names the other
+  test. Re-creating the test so it owns its records gives it a new test id,
+  which leaves its Test Lab history with the old one. See
+  [advanced_troubleshooting.md](advanced_troubleshooting.md) §1a.
+- **A caller left out by a path filter is not checked.** An analysis reads
+  which tests each test in *Out-of-scope test IDs* (`--alm-exclude-test-id`)
+  calls, and the conversion refuses to turn a test one of them calls into
+  Python (`parked-caller`). A test that *Path Exclusions* leaves out (or a CLI
+  `--include` pattern it does not match) is never downloaded, so its calls are
+  seen only when the analysis it is judged on measured it — a test moved into
+  an excluded folder since, for example. Keep call chains whole when you write
+  path filters.
+- **A parked test's stale call refuses every test of its name.** When a
+  parked test (in *Out-of-scope test IDs*, or path-excluded and measured by
+  the analysis) calls a test by a path no test has any more — the test it
+  called moved or was renamed — and the name matches more than one test, the
+  conversion cannot tell which one the call means. It refuses each of them
+  it would convert (`parked-caller`), with the tests that call them, rather
+  than guess. In a project with several same-named tests one such call can
+  hold back all of them until the call is fixed in ALM to name its test by
+  full path and the analysis is re-run.
+- **A parked test whose definition ALM cannot give blocks the conversion.**
+  If the analysis cannot read which tests a parked test calls, the conversion
+  refuses it (`parked-references-unread`) after every analysis, and the
+  analysis report lists it as needing manual intervention. The Migration
+  Console has no override: delete the test in ALM if it is no longer used, or
+  bring it back into scope and fix it there ([remediation.md](remediation.md)).
 - **Libraries attached only through Test Settings** (no ALM resource link)
   with bare function calls are **not detectable** — verify library linkage
   in ALM before migrating.
@@ -901,10 +980,19 @@ from the copy the conversion wave froze before changing it
   Migration Console itself are not: a native crash ends them with no result,
   and you run them again.
 - **Recovery has a budget.** The third crash while the same test is in flight,
-  the sixth crash in a wave, or the second crash in a row outside any test ends
-  automatic recovery: the wave is aborted and what it wrote is rolled back (a
-  wave with nothing to roll back is just closed), and the test in flight, if
-  any, is reported `process-crashed`. It is not retried further.
+  the wave's crashes reaching its crash budget, or the second crash in a row
+  outside any test ends automatic recovery: the wave is aborted and what it
+  wrote is rolled back (a wave with nothing to roll back is just closed), and
+  the test in flight, if any, is reported `process-crashed`. It is not retried
+  further. The wave's crash budget is 6 plus 2 % of the tests it has begun
+  converting, rounded down (7 at 50 tests, 8 at 100, 12 at 348, 106 at
+  5,000). A wave an earlier version of Phoenix opened keeps a fixed budget of
+  6.
+- **Finish an open wave with the version that opened it, or a newer one.** An
+  earlier version (1.3.0, for example) applies a fixed budget of 6 to every
+  wave. Continued with it, a wave a newer version said it would carry on can
+  be aborted and rolled back at its next launch. During a validation, keep
+  each run folder on one version.
 - **An interrupted rollback is not finished automatically.** If the conversion
   process crashes or is stopped while it rolls a wave back, the wave stays open
   and every later conversion in that run folder stops, naming each test still
