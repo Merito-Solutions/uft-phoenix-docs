@@ -1,6 +1,6 @@
 # UFT Phoenix
 
-> Merito UFT Phoenix converts OpenText UFT One VBScript GUI tests to UFT Python tests, from a folder of tests or a whole OpenText Application Quality Management (ALM) project. Documentation for version 1.3.1.
+> Merito UFT Phoenix converts OpenText UFT One VBScript GUI tests to UFT Python tests, from a folder of tests or a whole OpenText Application Quality Management (ALM) project. Documentation for version 1.3.2.
 
 ## Getting Started
 

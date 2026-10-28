@@ -97,7 +97,7 @@ and team enablement.
 ## About this repository
 
 This repository publishes the customer documentation for UFT Phoenix
-1.3.1. UFT Phoenix itself is proprietary software of Merito Solutions,
+1.3.2. UFT Phoenix itself is proprietary software of Merito Solutions,
 Inc., and its source code is not published here. The software is licensed
 under the agreement in [LICENSE](LICENSE), the same one the installer shows.
 The documentation is © Merito Solutions, Inc., all rights reserved — see

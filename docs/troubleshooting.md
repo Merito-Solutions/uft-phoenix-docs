@@ -693,6 +693,23 @@ carries forward the tests already converted.
   so, and running the conversion again carries them all forward and only
   records the result or writes the reports.
 
+### The conversion process restarted itself to free memory
+`migration_log.txt` shows *planned restart of the conversion process after test
+N …*, then *Restarted the conversion process to free memory (attempt N, planned
+restart K of at most 100 in this session). This is no crash and uses no crash
+budget …*. The conversion process is 32-bit, so it has at most 2 GB of address
+space; once it has finished at least 25 tests in one attempt and its memory is
+high (1,100 MB of private memory, or 700 MB or less of address space left),
+it ends itself between two tests and the supervisor starts it again. The tests
+it finished are carried forward without being read from ALM again, and nothing
+is in flight, so nothing needs doing. No crash is counted and no evidence is
+collected. If the process crashes while shutting down after it decided to
+restart, the log says so (*… then crashed while shutting down …*): that crash
+is recorded with its evidence but still uses no crash budget, and the next
+attempt checks the finished tests in ALM before skipping them. In the unlikely case that a single session needs more than 100 such
+restarts, it stops instead with *planned-restart-limit*: the wave stays open,
+and running the conversion again with the same Run ID continues it.
+
 ### The conversion stopped and stays open (`wave-stopped`)
 The conversion exits 2 with a result whose `status` is `wave-stopped` (or
 `journal-unwritable`), and its message starts *Conversion stopped (<reason>).
