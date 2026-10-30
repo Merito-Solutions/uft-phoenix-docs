@@ -988,6 +988,15 @@ from the copy the conversion wave froze before changing it
   converting, rounded down (7 at 50 tests, 8 at 100, 12 at 348, 106 at
   5,000). A wave an earlier version of Phoenix opened keeps a fixed budget of
   6.
+- **Planned restarts have a limit too.** When its memory runs high, the
+  conversion process restarts itself between two tests. That is no crash and
+  uses no crash budget ([troubleshooting.md](troubleshooting.md), *The
+  conversion process restarted itself to free memory*). One launch of the
+  conversion makes at most 100 such restarts, at least 25 finished tests
+  apart, so the limit cannot be reached below 2,500 tests in one launch. A
+  restart needed after the 100th is not made: the conversion stops with
+  `planned-restart-limit` and the wave open, and running it again with the
+  same inputs continues it.
 - **Finish an open wave with the version that opened it, or a newer one.** An
   earlier version (1.3.0, for example) applies a fixed budget of 6 to every
   wave. Continued with it, a wave a newer version said it would carry on can
