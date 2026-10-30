@@ -43,7 +43,7 @@ investment carries forward instead of being rewritten by hand.
 - **Safe by design.** A read-only analysis first, a confirmed backup before
   any write, and an all-or-nothing gate that never leaves a project half
   converted.
-- **Built for real estates.** Tests that call each other's shared actions
+- **Built for large projects.** Tests that call each other's shared actions
   are converted together, and version history is kept on version-controlled
   projects.
 - **Free for conversions of up to 100 test cases.** The analysis has no
@@ -97,7 +97,7 @@ and team enablement.
 ## About this repository
 
 This repository publishes the customer documentation for UFT Phoenix
-1.3.3. UFT Phoenix itself is proprietary software of Merito Solutions,
+1.3.4. UFT Phoenix itself is proprietary software of Merito Solutions,
 Inc., and its source code is not published here. The software is licensed
 under the agreement in [LICENSE](LICENSE), the same one the installer shows.
 The documentation is © Merito Solutions, Inc., all rights reserved — see

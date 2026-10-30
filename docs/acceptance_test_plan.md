@@ -501,17 +501,26 @@ by name on both paths.
 1. Read the run notes from TC-11's conversion (and TC-14's Test Lab run, if
    executed).
 2. PASS: every asset's notes include "UFT test extraction cache purged
-   (before conversion): …" (or "…was not present or could not be purged
-   (before conversion)…", which is also a pass — the purge is best-effort
-   and always reports its outcome). Each asset written to ALM also carries
-   the "(after ALM write)" note. If TC-14 was run, its assets also show
-   "Purged UFT test cache before Test Lab run: …".
+   (before conversion): …" (or "UFT test extraction cache (TD_80) not present
+   (before conversion): nothing to purge", which is also a pass). Each asset
+   written to ALM also carries the "(after ALM write)" note. If TC-14 was
+   run, its assets also show "Purged UFT test cache before Test Lab run: …"
+   (or "UFT test extraction cache (TD_80) not present (before Test Lab run):
+   nothing to purge", which also passes).
+   A note that starts "[warning] UFT test extraction cache (TD_80)" also
+   passes this case — the purge is best-effort and always reports its
+   outcome — but that purge did not clear the cache on that machine. When it
+   is the run's last purge (the "(after ALM write)" note for a run that wrote
+   to ALM, otherwise the "(before conversion)" note), the Executive Summary's
+   Next Steps must repeat it, and you follow it (close UFT One, end
+   `UFTRemoteAgent.exe`, delete TD_80) before running TC-14; when a later
+   purge in the same run has no [warning], the Next Steps must not.
 3. PASS: from the GUI this purge cannot be turned off — Step 4 exposes no
    cache-purge checkbox. From the CLI it is on by default and only
    `--no-purge-uft-cache` disables it; do not pass it for this case.
    `--purge-alm-cache` / `--no-purge-alm-cache` are accepted but have no
    effect; there is no ALM client-cache purge to verify.
-4. Note for multi-host estates: the automatic purge only covers the machine
+4. Note for multi-host deployments: the automatic purge only covers the machine
    and user running Phoenix. Every other execution host needs
    `%LOCALAPPDATA%\Temp\TD_80` purged by hand before it runs a converted
    test.
@@ -601,6 +610,14 @@ removes that test.)
    scope) and, when the run wrote one, the pre-flight gate report. On a
    filesystem run they are the scan, conversion and validation reports; the
    ALM path does not produce convert or validation reports.
+4. PASS: its Run Timing section gives the run's start, finish and elapsed
+   time in this computer's local time zone, with the zone and its UTC
+   offset, and Step 6's progress line ended with *Elapsed time:* close to
+   the same figure (the console counts from when it launched the run,
+   after any question it asked). On an ALM
+   conversion, `analysis_timing.html` and the scan report label the total
+   *Total conversion time* (an analysis's report labels it *Total analysis
+   time*).
 
 ## I. Version control and locks
 

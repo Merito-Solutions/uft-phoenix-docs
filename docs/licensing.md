@@ -202,14 +202,16 @@ See [usage.md](usage.md) § *The free-edition limit*.
 
 - The analysis, at any size.
 - Finishing a conversion that is already under way. On ALM: a conversion that
-  continues an unfinished conversion wave (the relaunch after a crash, or the
-  same command run again) and its rollback, whichever version of Phoenix
-  started it. On disk: resuming an interrupted conversion, unless its source
-  folders now hold more test cases than when it started; one an earlier
-  version of Phoenix started always finishes. A resumed conversion refused
-  for the tests it gained cannot be resumed again: run it again, without
-  `--resume`, once the count is within the limit that applies — remove those
-  tests, or install a license that covers the conversion.
+  continues an unfinished conversion wave (the relaunch after a crash, the
+  relaunch after the conversion process restarted itself to free memory —
+  [advanced_troubleshooting.md](advanced_troubleshooting.md) §9 — or the same
+  command run again) and its rollback, whichever version of Phoenix started it.
+  On disk: resuming an interrupted conversion, unless its source folders now
+  hold more test cases than when it started; one an earlier version of Phoenix
+  started always finishes. A resumed conversion refused for the tests it gained
+  cannot be resumed again: run it again, without `--resume`, once the count is
+  within the limit that applies — remove those tests, or install a license that
+  covers the conversion.
 - `uft-migrate restore`, including for tests an earlier version of Phoenix
   converted.
 - `uft-migrate doctor`, `license`, `validate`, `summarize` and `diagnostics`.

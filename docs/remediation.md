@@ -162,7 +162,7 @@ reachable (or relative) before conversion.
 
 **8. Dependency cycles**
 Refactor cyclical library/action references into a shared utility layer, then
-re-run the analysis until the cycle clears: `scan` for a filesystem estate,
+re-run the analysis until the cycle clears: `scan` for filesystem tests,
 where it is a `dependency-cycle` blocker, or `convert --alm --dry-run` (the
 Migration Console's *Analysis* step) for an ALM project, where it shows as
 *Dependency Cycles* above zero and keeps the verdict no-go. A conversion
@@ -276,7 +276,7 @@ a stop.
 
 Ordinary framework code raises several of these on nearly every test, so
 "re-analyze until the report is clean" is not a reachable end state for a
-typical estate. Review each finding against
+typical project. Review each finding against
 [supported_versions.md](supported_versions.md), accept it, and approve on that
 evidence rather than chasing a green verdict.
 
@@ -288,7 +288,7 @@ the conversion report.
 The ALM path does not run these detectors — it checks cross-test references and
 dependency cycles by its own rules (see blocker 6 and the pre-flight table) — so
 an ALM project full of checkpoints can still report go. If you need those
-constructs found across an ALM estate, search your own source for them.
+constructs found across an ALM project, search your own source for them.
 
 ## Warnings worth acting on (not blockers)
 
@@ -386,7 +386,7 @@ never use the override to make a status report green.
 
 ## Remediation loop
 
-1. Run the analysis — `scan`/`analyze` for a filesystem estate,
+1. Run the analysis — `scan`/`analyze` for filesystem tests,
    `convert --alm --dry-run` (the Migration Console's *Analysis* step) for an
    ALM project — and read the Scan HTML blocker inventory.
 2. Fix at the source where possible (link libraries and delete the

@@ -104,7 +104,7 @@ The **local filesystem scan** does not classify the first three constructs
 below. They raise no blocker and no finding that names them — at most a generic
 *"Call statement or implicit-call syntax detected"* warning, because the line
 parses as an ordinary procedure call — and warnings do not affect the go/no-go
-verdict. A filesystem scan of an estate whose only issue is a `GoTo` still
+verdict. A filesystem scan of tests whose only issue is a `GoTo` still
 reports `go_no_go: "go"`; the conversion then refuses to build that test with
 *"converted output is not valid Python"*.
 
@@ -115,7 +115,7 @@ where it can map it — the source line number, and cannot be overridden. That
 message describes itself as a converter defect — for the constructs below it is
 not one, and the fix is in the VBScript.
 
-Search your estate for all four and remediate the VBScript *before* you
+Search your tests for all four and remediate the VBScript *before* you
 convert:
 
 - **`GoTo <label>`** (and its inline form `If … Then GoTo <label>`) — the
@@ -133,7 +133,7 @@ convert:
   Python it produces parses. It is the one case in the list that reaches a
   live run.
 
-A pre-migration sweep of the source, run from the root of your test estate,
+A pre-migration sweep of the source, run from the root of your test folders,
 finds them:
 
 ```powershell
@@ -187,6 +187,159 @@ path's does; this manual sweep is the control.
   default-return) so batch runs never hang on a dialog; tests designed
   around human acknowledgement change behavior by design.
 
+### Fixed in 1.3.4: text in an object description could change during conversion
+
+**Versions 1.3.3 and earlier converted some steps wrongly and reported them as
+clean.** Both conversion paths were affected. The converted step was valid
+Python, raised no blocker and no warning, and left the go/no-go verdict
+untouched, so nothing in the reports pointed at it. This release converts
+these steps correctly.
+
+**Which steps.** A step that calls a method *without* parentheses around its
+arguments, where the object part of the step (everything before the method
+name) holds a quoted string containing a backslash or a doubled quote (`""`),
+or joins values with `&` outside the quotes:
+
+```vbscript
+Browser("Main").Page("Main").WebEdit("name:=\bUser\b").Set "admin"
+Window("regexpwndtitle:=C:\\Reports\\.*").Activate 1
+Browser("Main").Page("Main").WebEdit("name:=Say ""hi""").Set "x"
+Browser("Main").Page("Main").WebEdit("name:=" & strField).Set "x"
+```
+
+The arguments (`"admin"`, `"x"`) were converted correctly. The object part was
+copied into the Python as written, and Python reads quoted text by its own
+rules:
+
+- **A backslash started an escape.** `\b`, `\n`, `\t`, `\r`, `\f`, `\v`, `\a`,
+  and `\0` to `\7` (an octal character code, so a folder name such as `\2024`
+  changed too) turned into control characters. A doubled backslash (`\\`), the
+  usual way to match a real backslash in a regular expression or to write a
+  `\\server` share, became a single one. `\x`, `\u`, `\U` and `\N` followed by
+  a valid code (`\x41`) became the character that code names. Each of these
+  changed the description without any error. `\d`, `\s`, `\w` and `\.`
+  happened to come through unchanged. `\x`, `\u`, `\U` or `\N` without a valid
+  code produced Python that does not compile, and those tests were refused
+  rather than converted.
+- **A doubled quote was dropped:** `Say ""hi""` became `Say hi`.
+- **`&` became a different operator.** Where either side was text, the step
+  failed with an error when it ran. Where both sides were whole numbers
+  (`oItems(i & j)`), the step silently used a different value.
+
+An `&` *inside* a quoted string (`"text:=Terms & Conditions"`) was not
+affected.
+
+The same happened to the object part of a property assignment that holds no
+`:=` (`Browser("Main").WebEdit("Path\new").Object.value = "x"`, with or
+without `Set` in front; with `:=` the step was refused, see below), and to
+such a step inside a `With` block
+(`.WebEdit("name:=\bUser\b").Set "x"`), on an `OptionalStep` line, after
+`Then` or `Else` on a one-line `If`, or after a `:` separator. These were
+always converted correctly: calls with parentheses (`.Set("admin")`), steps
+with no arguments (`.Click`), and the object in `Set x = …`, `x = …`, `If`,
+`Do`, `Loop` and `While` conditions, `Select Case`, `For Each` and `With`
+lines.
+
+**What it did at run time.** The step looked for an object description you did
+not write. Usually that fails the step with an object-not-found error. Under
+`On Error Resume Next`, or where the changed regular expression still matches
+an object, the step can instead be skipped, or act on another object, without
+failing the test.
+
+Three related shapes failed loudly in earlier versions, rather than converting
+wrongly without notice, and now convert:
+
+- an object part that indexes a VBScript array (`arrEdits(0).Set "x"`) was
+  written as a call and failed at run time with a TypeError;
+- a property assignment whose object part contains `:=`
+  (`Browser("title:=Home").WebEdit("name:=q").Object.value = "x"`) was
+  refused with *"converted output is not valid Python"*;
+- an `OptionalStep` line with a doubled quote in its arguments was refused
+  because the step *"would be LOST at run time"*.
+
+**Find the tests an earlier version converted.** Search the VBScript the
+conversion started from. On the ALM path that is the run folder's first-sight
+copies, `out\<run id>\alm_aom_work\alm_rollback\test_<id>_source`, and the
+`.qfl` libraries in `alm_aom_work\test_<id>_libraries`. On the filesystem
+path it is the source tree after Convert Mode `new` (which leaves it
+untouched); after an `in-place` conversion it is the `<name>.bak` folder
+Phoenix set aside beside each converted test, or version control. Run this
+from the folder that holds them:
+
+```powershell
+Get-ChildItem -Recurse -Include Script.mts,*.qfl,*.vbs |
+  Select-String -Pattern '(^|:|\bThen\s|\bElse\s)\s*((Call|Set)\s+)?\.?\w[\w.]*\(.*(\\|""|&).*\)(\.\w+)+(\s+[^\s=]|\s*=)'
+```
+
+Every affected step written on one line matches. Review each hit: an empty
+string (`""`) or an `&` inside quotes in the object part, or a backslash or
+`&` in the arguments of a line that has further parentheses, also matches and
+is harmless. The array shape above does not match; it failed loudly when the
+test ran.
+
+If you no longer have the VBScript, search the converted scripts instead (the
+`Script.pts` of each action, and the converted `.pfl` libraries). Phoenix
+writes a backslash as `\\`, a quote inside a string as `\"`, and joins text
+with `VBConcat(…)`, so a damaged single backslash, doubled quote or `&` stands
+out:
+
+```powershell
+Get-ChildItem -Recurse -Include Script.pts,*.pfl |
+  Select-String -Pattern '^\s*[^#\s]' |
+  Where-Object {
+    $line = $_.Line -replace '"(\\[rnt])+"', '""' -replace 'pair\[0\] & pair\[1\]', ''
+    $line -match '(?<!\\)\\[^\\"u]|"""|\w""|""\w|"\s*&|&\s*"' -or
+      ($line -replace '"(\\.|[^"\\])*"', '""') -match '[\w)\]]\s+&\s+[\w(]'
+  }
+```
+
+**This search cannot find every affected step.** A damaged doubled backslash
+(`\\` in the VBScript, which Python read as one) and a damaged `\u` code look
+exactly like a correct conversion. A doubled quote in the middle of the text
+with a space or punctuation on both sides (`"text:=Click "" here"`), an `&`
+written without spaces between two names (`a&b`) and the array shape above
+are not matched either. If your object descriptions use `\\` (a regular
+expression that matches a real backslash, such as `C:\\Reports\\.*`, or a
+`\\server` share), a doubled quote or `&` that way, find those tests from
+the VBScript or the rollback copies, or review every converted object
+description that holds `\\` or a `""` that is not an empty string.
+
+For an ALM project, a GUI Analysis or `convert --alm --dry-run` of the
+converted project downloads each test's current scripts into
+`out\<run id>\alm_aom_work\test_<id>_source`; run the search there. Run that
+analysis under a new **Analysis Run ID** (on the command line, a new
+`--run-id`), or first do the search in § *Shared object repositories on
+caller tests (fixed in 1.3.4)* below: an analysis in the run folder you
+converted in rewrites that folder's `alm_aom_results.json` and can delete its
+`migration_log.txt`, the record that search reads. An action that was already
+Python before you converted can match too: review it as your own code.
+
+**What to do.** For each affected test, convert it again from its
+pre-conversion copy with this release, or correct the object part by hand in
+the converted script.
+
+- **ALM path.** Restore the test (`uft-migrate restore`,
+  [alm_safety.md](alm_safety.md) § *Rolling back*), then run the conversion
+  under a **new** run id: an earlier run id skips every test that run already
+  converted ([playbook.md](playbook.md) § *3. Rule hardening* describes the
+  same sequence).
+- **Filesystem path, Convert Mode `new`.** Convert again into a new Output
+  Root, or into the same one with Overwrite Policy `backup` or `overwrite`.
+  The default, `fail`, refuses every test whose output already exists.
+- **Filesystem path, Convert Mode `in-place`.** Move the converted `<name>`
+  aside and rename `<name>.bak` back to `<name>` (or restore the test from
+  version control) before converting again. Converting the already-converted
+  `<name>` keeps its Python as it stands, so the damage stays.
+- **By hand.** Write the description as the VBScript meant it: double each
+  backslash (`"name:=\\bUser\\b"`, `"regexpwndtitle:=C:\\\\Reports\\\\.*"`)
+  and write a quote inside the string as `\"` (`"name:=Say \"hi\""`). For a
+  damaged `&`, prefer converting again. If you edit it, use `VBConcat`
+  (`WebEdit(VBConcat("name:=", strField))`) only in a script that already
+  calls `VBConcat` elsewhere: Phoenix installs that helper only where the
+  conversion needed it, and anywhere else the step stops with a NameError.
+  Otherwise write `"name:=" + str(strField)`, which gives `None` instead of an
+  empty string when the variable is Empty.
+
 ## Test-level artifacts not carried
 
 A converted test is **rebuilt** through the AOM, not copied. Only what Phoenix
@@ -206,9 +359,11 @@ What is re-applied in **both** conversion paths:
 
 What **only ALM project conversion** re-applies:
 
-- the per-action shared-repository (`.tsr`) associations — subject to the open
-  defect documented below; a test whose associations UFT cannot read, and
-  which uses one, fails rather than converting without it
+- the per-action shared-repository (`.tsr`) associations — a test whose
+  associations UFT cannot read, and which uses one, fails rather than
+  converting without it; 1.3.3 and earlier could drop them on a test that
+  calls another test's actions and, without a note, on any test whose
+  repositories UFT could not read (fixed in 1.3.4, see below)
 - six `Settings.Run` fields: iteration mode, start and end iteration, on-error
   behaviour, object sync timeout, disable smart identification
 - the associated add-in set
@@ -244,7 +399,7 @@ a statement of how often it will affect you.
   survives because Action0's script is re-emitted with its `RunAction` calls,
   and on the ALM path the six `Settings.Run` fields above are re-applied — but
   anything else those profiles held (additional Vuser profiles, per-action
-  run-logic customisation) is not. Every test in the reference estate shared
+  run-logic customisation) is not. Every test in the reference test set shared
   one identical `default.usp`, so that validation could not have detected this
   and did not.
 - **Action descriptions are not carried.** Each rebuilt action is authored with
@@ -274,9 +429,9 @@ a statement of how often it will affect you.
   keystroke timing; it has no Python equivalent. **A test that genuinely calls
   `RunAnalog` still converts, with no blocker and no finding that names it, but
   the analog track it replays is not carried, so those steps cannot replay.**
-  Re-author them as ordinary object steps. In the reference estate both affected
+  Re-author them as ordinary object steps. In the reference test set both affected
   tests carried the file without ever invoking analog replay, so nothing was
-  lost there — do not read that as the general case. Search your estate for
+  lost there — do not read that as the general case. Search your tests for
   `RunAnalog` before converting.
 - **Debug watch expressions (`Watches.xml`) are not carried.** *[12 of 116]*
   IDE-only debugging aids saved with the test; they have no effect on
@@ -290,33 +445,43 @@ a statement of how often it will affect you.
   depends on Record and Run Settings to start its AUT will not start it after
   conversion.** Set Record and Run Settings on the converted test, or drive
   launch from the script with `SystemUtil.Run` — which is what the reference
-  estate does throughout.
+  test set does throughout.
 
-### Known defect (ALM path): a shared object repository can be dropped on a caller test
+### Shared object repositories on caller tests (fixed in 1.3.4)
 
-**Status: open, disclosed at conversion time, not yet root-caused.** This
-concerns ALM project conversion, the only path that re-applies shared
-repositories at all; a local filesystem conversion drops every one of them, as
-the list above says.
+**Fixed in 1.3.4.** Versions 1.3.3 and earlier could drop the shared object
+repository (`.tsr`) of a test that both calls another test's reusable actions
+and associates a shared repository itself. This concerns ALM project
+conversion, the only path that re-applies shared repositories at all; a local
+filesystem conversion drops every one of them, as the list above says. The
+converted test uploaded and verified clean, then failed at run time with
+`Cannot find the "<object>" object's parent`, because no object that resolves
+through the repository could be found. Those versions reported the loss only
+as a note on the test: `[warning] shared object repository NOT carried into the
+rebuilt test: <repository>`. A test that calls no other test, or associates no
+shared repository, was not affected.
 
-A test that both (a) calls another test's reusable actions and (b) associates a
-**shared object repository** (`.tsr`) may lose that association during
-conversion. Measured across the reference estate: 17 tests carried a shared
-repository, 16 kept it, and the one that lost it was the only test that was
-*both* a cross-test caller and a repository owner. Tests that are one or the
-other are unaffected.
+The cause: once the rebuild adds a call to another test's action, UFT's
+automation interface no longer reports the test's own actions reliably, and the
+step that associates the repositories looked each action up there and found
+none. Phoenix now associates each repository on the action as it builds it.
+It then checks the saved test against what UFT reports for each of the source
+test's actions. A test that would still come out without one of those is
+refused rather than uploaded: it ends `aom-build-failed` with *shared object
+repository NOT carried into the rebuilt test: <repository>. The source
+associates it, … refusing to upload the test without it*, and like any failed
+test it stops the conversion before anything of that test is uploaded.
 
-The consequence is severe where it happens: every object that resolves through
-the repository becomes unresolvable, and the test fails with
-`Cannot find the "<object>" object's parent`. It is also the combination most
-likely to occur in a mature estate, where shared repositories and
-reusable-action chains are both common.
+A repository named only in the test's files is reported as a warning on that
+test, not refused: *[warning] the source test's files associate shared object
+repository <repository>, which UFT reports for none of its actions …*. ALM
+keeps the files of an action that was deleted from a test or replaced, and they
+still name the repository that action used, so a name only the files carry may
+belong to no action of the test. If one of the test's actions does use it,
+associate it again in UFT. Only an action's repository associations count: a
+repository an action's description mentions is not one.
 
-ALM project conversion **reports** this per asset rather than dropping it
-silently — look for `[warning] shared object repository NOT carried into the
-rebuilt test: <repository>` in the conversion notes.
-
-A related case is now refused rather than converted. To carry a test's shared
+A related case is refused too. To carry a test's shared
 repositories, the conversion first asks UFT which ones each action uses. When
 UFT fails that read with one of its known transient faults (a license or COM
 hiccup), Phoenix tries it up to twice more, noting each retry as
@@ -328,27 +493,59 @@ repositories could not be harvested (…); refusing to rebuild without them
 because the source associates <repository>…*). Earlier versions converted it
 without its repository, and it failed only at run time. A test that names none
 converts as before, with a note that its shared repositories could not be
-harvested. One silent case remains. If UFT answers the read but cannot read
-one action's repositories, that action's repositories are missing from the
-answer, and the warning above does not fire for them, because it checks the
-build only against what the read returned.
+harvested. An action whose repositories UFT cannot read now fails that read in
+the same way; earlier versions left that action out of UFT's answer without a
+word.
 
-**Do not check for this in ALM — it will lie to you.** The ALM *asset relation*
-between the test and the `.tsr` resource **survives** even when the action-level
-association is lost, so the repository still shows as a linked resource on the
-test while no action actually uses it. UFT resolves objects through the
-per-action association stored in `Action<N>/Resource.mtr`, not through the ALM
-relation. Verified on the affected test: the ALM relation to the repository was
-intact, and the live action carried no association at all. The only reliable
-checks are the conversion warning above, or running the test.
+**If you converted with 1.3.3 or earlier,** check every test that both calls
+another test's actions and uses a shared object repository. Search the run
+folder for `shared object repository not carried`, ignoring case: each test it
+names most likely lost its repository. Before you re-associate one, open it in
+UFT (*Resources → Associate Repositories*) to confirm the repository is
+missing: those versions also named a test that associates its repository by
+file name alone, even when it kept it. Search `migration_log.txt` (for example
+`Select-String -Path migration_log.txt -Pattern 'shared object repository not carried'`):
+it is the complete record. `alm_aom_results.json` holds only the last
+launch's results, and a test that launch carried forward from an earlier one
+(after a crash, a planned restart of the conversion process, or a re-run with
+the same run id) keeps only an *Already converted* note there, not this one.
+If `migration_log.txt` is already gone, the note cannot be relied on: confirm
+each test that uses a shared object repository as for the silent case below.
 
-**Until it is fixed:** after an ALM project conversion, check the notes for that
-warning and re-associate the repository on the affected test in UFT
-(*Resources → Associate Repositories*). Note that **re-running the conversion
-does not repair an already-affected test** — the converter faithfully carries
-what the source has, the harvest reads the live action, and the association is
-already gone from it. Restore the affected test from a pre-conversion snapshot
-first, or re-associate by hand.
+**Search before you run anything else in that run folder**, or copy the
+folder somewhere safe first. Every analysis in the folder rewrites
+`alm_aom_results.json`, and a Migration Console analysis with *Overwrite
+previous analysis outputs* ticked (the default) deletes `migration_log.txt`
+unless the last run in the folder was a `run` conversion (the Migration
+Console's, or `uft-migrate run`); the first analysis after that conversion
+counts as that last run, so the second deletes it. To analyze the converted project without touching that
+record, for example for the search in § *Fixed in 1.3.4: text in an object
+description could change during conversion* above, enter a new **Analysis
+Run ID** first (on the command line, a new `--run-id`).
+
+The `shared object repository not carried` note does not cover the silent
+case above: an action whose repositories UFT could not read left no note at
+all, on any test that uses a shared object repository, caller or not. Such a
+test can be confirmed only by running it, or by comparing its converted
+actions' `Resource.mtr`
+files with the pre-conversion copy in the run folder's
+`alm_aom_work\alm_rollback\test_<id>_source\`. Compare the associations
+UFT shows (*Resources → Associate Repositories*), not text found in the files:
+a `Resource.mtr` file can keep an old copy of its content, so a text search can
+find a repository the action no longer associates. **Do not check in ALM — it will lie to you.** The ALM *asset relation* between the test and the `.tsr` resource
+**survives** even when the action-level association is lost, so the repository
+still shows as a linked resource on the test while no action uses it. UFT
+resolves objects through the association stored in each action
+(`Action<N>/Resource.mtr`), not through the ALM relation.
+
+To repair an affected test, re-associate the repository on it in UFT
+(*Resources → Associate Repositories*), or restore the test from its
+pre-conversion copy and convert it again with this version. **Converting the
+already-converted test again does not repair it**: the conversion carries what
+the test it reads associates, and the converted test no longer associates the
+repository. That conversion names the lost repository in a `[warning]` note on
+the test, because ALM keeps the files of the action it replaced, but it does
+not associate it again.
 
 Two further differences are expected and benign rather than limitations, but
 are called out because a byte-level comparison of source against build will
@@ -365,7 +562,7 @@ A third difference applies to the ALM path, looks alarming, and is not: the
 converted test's `.usr` file lists **fewer add-ins** than the source's. That
 section records which add-ins were *installed* when the test was saved, not
 which the test is associated with, and it is typically identical across an
-entire estate. Phoenix carries the associated set reported by
+entire project. Phoenix carries the associated set reported by
 `GetAssociatedAddinsForTest`, which is the **minimal set the test actually
 needs** — a test driving `Browser`/`Page` objects gets Web; one driving
 `WpfWindow` gets WPF and UI Automation. This is
@@ -378,26 +575,26 @@ whichever add-ins the UFT session had loaded — check and set them by hand.
 
 ## What the reference validation did and did not exercise
 
-A clean conversion only proves the paths the source estate actually walked. The
-reference estate (116 VBScript tests, 239 actions) did not exercise the features
+A clean conversion only proves the paths the source tests actually walked. The
+reference test set (116 VBScript tests, 239 actions) did not exercise the features
 below, or exercised only the narrow slice each row names, so while Phoenix has
 unit coverage and, in several cases, explicit handling for them, they have not
 been proven end-to-end on a real conversion. Treat any of these in your own
-estate as **needing a pilot conversion and a run comparison before a production
+tests as **needing a pilot conversion and a run comparison before a production
 wave** — convert a representative handful first rather than the whole project
 blind:
 
 | Not exercised | Why it matters |
 | --- | --- |
-| **Environment variables** (`Environment(...)`) and external environment XML files | Not merely untested — **not carried at all**; see the entry above. No test in the reference estate used them, so the gap was never exercised end-to-end either. |
+| **Environment variables** (`Environment(...)`) and external environment XML files | Not merely untested — **not carried at all**; see the entry above. No test in the reference test set used them, so the gap was never exercised end-to-end either. |
 | **Active Screen data** | Not carried and never exercised; Active-Screen-dependent maintenance workflows do not survive. |
 | **Virtual objects** | No conversion path has been demonstrated. |
 | **`LoadFunctionLibrary`** and **`ExecuteFile`** at run time | The *linked*-library path is well covered (39 tests); loading a library dynamically from script is not. Every `ExecuteFile` statement is refused on the ALM path; on the filesystem path its treatment follows the Strictness setting (see *Strictness on the local path*). |
 | **Runtime `Recovery.*` API calls** | Distinct from recovery scenarios above; the runtime object is untested. |
-| **WMI beyond `Win32_Process`** (`winmgmts:`) | Only `Win32_Process` ran end to end — enumeration (`InstancesOf`), a filtered `ExecQuery`, property reads, collection `.count` and `Terminate()`, in the reference estate's process-closing helper (see the process-scan note below). Other namespaces and classes have unit coverage only. |
+| **WMI beyond `Win32_Process`** (`winmgmts:`) | Only `Win32_Process` ran end to end — enumeration (`InstancesOf`), a filtered `ExecQuery`, property reads, collection `.count` and `Terminate()`, in the reference test set's process-closing helper (see the process-scan note below). Other namespaces and classes have unit coverage only. |
 
 **Checkpoints are the exception to read carefully.** They were exercised: the
-reference estate's converted tests ran them, and its approved regression set
+reference test set's converted tests ran them, and its approved regression set
 reported the same checkpoint count as its VBScript baseline. What is missing is
 detection — ALM project analysis does not flag a checkpoint, an `OutputValue` or
 a `GetROProperty`-family call at all, so find them yourself with the sweep above
@@ -405,7 +602,7 @@ and review every such line before you approve the run.
 
 The constructs Phoenix is known **not** to detect before a filesystem
 conversion — `GoTo`, `On Error GoTo <label>`, VBScript `Class` and
-`Property Get/Let/Set` — also did not appear in the reference estate, and nor
+`Property Get/Let/Set` — also did not appear in the reference test set, and nor
 did `Eval` inside an expression, which the filesystem scan does raise. The
 pre-migration sweep above is the control for all four; run it.
 
@@ -503,7 +700,7 @@ needs. The block sits at the top of the script, or directly after the
 - **Report line counts still include the helpers.** "Python lines produced" and
   "Changed Lines" measure the converter's output, which is produced before the
   helpers move into the library.
-- **Mixed estates are fine.** A script converted by a Phoenix build that
+- **Mixed projects are fine.** A script converted by a Phoenix build that
   predates `PhoenixVBRuntime.pfl` — recognisable by pasted helper definitions
   and no `# _phoenix_vb_runtime` block — keeps its pasted helpers until it is
   converted again; both forms run side by side.
@@ -521,7 +718,7 @@ needs. The block sits at the top of the script, or directly after the
   "helpers stay pasted". A test fails only when something it links is already
   compacted on the server and cannot fall back.
 
-Measured on the reference estate: a whole-project conversion moved the helpers
+Measured on the reference test set: a whole-project conversion moved the helpers
 of 45 tests into the runtime library and related it to 6 more that call actions
 using it; all 51 were then run in Test Lab. None failed on the library or a
 missing helper. The approved regression set of 81 tests, 31 of which use the
@@ -831,7 +1028,7 @@ by an `else` branch that reports *"Optional step skipped"*. To fix one, change
 `.exist(0)` to `.exist()` in the script, or restore the test to VBScript
 (`uft-migrate restore`, see [alm_safety.md](alm_safety.md)) and convert it
 again; a filesystem conversion can simply be run again from the VBScript source.
-In the reference estate the affected tests finished in 1–9 s against 22–26 s
+In the reference test set the affected tests finished in 1–9 s against 22–26 s
 under VBScript, the difference being exactly the wait that had been dropped.
 
 ## Runtime parity
@@ -858,7 +1055,7 @@ under VBScript and *fail* after conversion, having changed in no other way.
 The failure is not introduced by the conversion — it was already there, graded
 as a warning.
 
-Measured on the reference estate, three tests failed after conversion against an
+Measured on the reference test set, three tests failed after conversion against an
 84/84 VBScript baseline. Their baseline runs look like this next to their
 passing near-duplicates:
 
@@ -883,7 +1080,7 @@ exercises its application finishes far faster and books a real verification.
 Fix the descriptors first and your baseline becomes a true baseline.
 
 **Do not over-read this.** It is not a general rule that the Python engine is
-stricter. Other tests in the same estate logged a `Replay Warning` at a similar
+stricter. Other tests in the same project logged a `Replay Warning` at a similar
 duration under VBScript and still passed after conversion. Those warnings came
 from `OptionalStep` lines: under VBScript a skipped optional step is recorded as
 a `Replay Warning` after the sync timeout has been waited out, which is intended
@@ -900,8 +1097,8 @@ name" helper that calls
 returned object — adds seconds to every call once converted. Nothing fails and
 no step result changes; the run is simply slower.
 
-Measured on the reference estate, the same 84 tests on the same host, VBScript
-baseline against the converted estate: the six tests that call such a helper
+Measured on the reference test set, the same 84 tests on the same host, VBScript
+baseline against the converted tests: the six tests that call such a helper
 once or twice each ran **6–15 s slower per run** (+15 s, +12 s, +10 s, +8 s,
 +7 s, +6 s), roughly 4–12 s per call, where their whole VBScript runs took
 1–8 s. The added time sits between the run's `Start Action` node and its first
@@ -934,7 +1131,7 @@ report shows one `Replay Error` and a `Run Error` traceback naming the line.
 The VBScript original, run the same way from Test Lab, reported the failure
 and carried on, so every later step that depended on the missing object failed
 and was reported too. The verdict is the same, Failed; the converted report is shorter
-and the failed run faster. Measured on the reference estate: a login test whose
+and the failed run faster. Measured on the reference test set: a login test whose
 window was missing failed in 22 s after conversion, with one failed step
 reported, and in 106 s before, with four.
 

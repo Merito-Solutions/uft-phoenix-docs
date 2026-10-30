@@ -136,7 +136,7 @@ for the ALM workflow.
 
 | Choice | What it means | Choose it when |
 | --- | --- | --- |
-| **Upgrade ALM Project** | Convert every UFT GUI test in the ALM project's Test Plan — whole-project, all or nothing. | Migrating an ALM estate. Requires a project backup/snapshot — the run refuses to upload without the backup confirmation. |
+| **Upgrade ALM Project** | Convert every UFT GUI test in the ALM project's Test Plan — whole-project, all or nothing. | Migrating a whole ALM project. Requires a project backup/snapshot — the run refuses to upload without the backup confirmation. |
 | **UFT FileSystem** | Convert tests stored on disk (local folders or UNC shares). | Tests are version-controlled or exported to disk rather than stored in ALM. |
 
 There is no folder- or count-scoped ALM conversion. ALM conversion is
@@ -368,7 +368,7 @@ convert only the tests matching these globs. The box is hidden on the
 **Upgrade ALM Project** workflow, and an ALM run never carries an include list
 even if you filled the box in before switching workflows: ALM conversion is
 whole-project, so the console does not offer an include filter there.
-*Example:* include only `Flight_*` to convert one application's tests out of a
+*Example:* include only `Billing_*` to convert one application's tests out of a
 shared folder.
 
 **Custom UFT Methods (one per line)** — extra method names the converter
@@ -476,7 +476,12 @@ What that policy means in practice:
   TD_80 before every run and after any run that wrote to ALM, so UFT reads
   what the server actually holds; there is no checkbox for it. The purge
   covers only the machine Phoenix runs on and the account it runs as — every
-  other execution host needs `%LOCALAPPDATA%\Temp\TD_80` cleared by hand.
+  other execution host needs `%LOCALAPPDATA%\Temp\TD_80` cleared by hand. If
+  a purge cannot delete every file (another process, such as a leftover UFT
+  Remote Agent, still holds one), the asset's notes say so, and what to close
+  before you run the converted tests in Test Lab; the Executive Summary's Next
+  Steps says it too when the cache was still not cleared at the end of the
+  run.
 - **A lock never fails an asset — locked assets are overwritten.** Per
   asset, Phoenix allows a 10-second grace period for the lock to clear,
   attempts to release it, and then converts and overwrites either way: an
@@ -607,7 +612,9 @@ the run folder: `scan_report.html`, `.md` and `.json`, `dependency_graph.json`,
 `file_manifest.txt`, `analysis_cli_output.log`, `scoping_summary.html` and
 `scoping_summary.json`, `conversion_summary.json`,
 `observability_metrics.json` and `migration_log.txt`. Unchecked, they are left
-in place.
+in place. Either way the `analysis_reports` folder is left alone: it is the copy
+of an earlier analysis's reports that a conversion kept, and the next
+conversion replaces it with the analysis you are about to run.
 
 Because a conversion writes into this same folder, those last three are a
 conversion's own record once one has run there — including `migration_log.txt`,
@@ -769,7 +776,7 @@ with the count, *Nothing was converted.* and the run folder.
 
 **Re-analyze Failed Assets** — after fixing source scripts, re-scans only
 the assets that failed, under the same Analysis Run ID. Much faster than a
-full re-scan of a large estate. Works on both migration paths and, for ALM,
+full re-scan of a large test set. Works on both migration paths and, for ALM,
 at both analysis depths. The refreshed report still covers the whole scope:
 the re-analyzed assets get their new result, and every asset that already
 passed keeps the result from the previous analysis of that Run ID (on the ALM
@@ -828,7 +835,14 @@ Output Log, plus — on the Upgrade ALM Project workflow only — Conversion
 Summary, Migration Log and Observability Metrics. Those last three stay blank
 on a UFT FileSystem analysis, which does not write them. They are cleared when
 a run starts and filled in when it finishes (and whenever you return to Step
-5); they do not light up file by file. Start with **Scan HTML** — it carries
+5); they do not light up file by file. After an ALM conversion has run in the
+folder (one that passes the pre-flight gate, or finds no test to convert,
+rewrites those files with its own results), each link opens the copy of
+the analysis's file the conversion kept in the run folder's
+`analysis_reports` folder, and the status line names that folder. Only a copy
+of the analysis the folder is judged on is used: after a
+re-analysis, the links open the new analysis's files until a conversion keeps
+a copy of it. Start with **Scan HTML** — it carries
 the go/no-go verdict and per-file drill-down, names the edition at the top,
 and, over the free edition's limit, carries the *Scoping required* notice with
 links to the scoping summary and to Merito's consultation request form.
@@ -1103,6 +1117,14 @@ upload → verify (with version-control checkout/check-in handled automatically
 per asset). On the Upgrade ALM Project workflow the progress bar shows
 per-asset progress read live from the engine; on UFT FileSystem it only shows
 that the run is active, and the outcome appears when the run finishes.
+When the run ends, the line under the progress bar says how long it took,
+for example *Run complete: 348 of 348 assets. Elapsed time: 5h 33m 31s.*:
+the time since the console started the run (after any question it asked
+you first), any automatic relaunch or planned restart of the conversion
+process included. A resumed conversion is timed from the launch that
+resumed it; the Executive Summary times the whole
+conversion. **Run Analysis** ends its progress line the same way, also when
+the analysis did not complete.
 
 Over the free edition's limit, with no installed license that covers the
 conversion, the button refuses first, before any other check, with
@@ -1227,7 +1249,10 @@ during review to show a QA owner exactly what happened to their test.
 
 **Run Outputs** — links to this run's reports, filled in when the run
 finishes. Both paths produce the **Executive Summary** (HTML / Markdown / JSON
-— verdict, next steps, drill-downs). Beyond that the set depends on the path:
+— verdict, next steps, drill-downs, and **Run Timing**: when the run started
+and finished and how long it took, in this computer's local time zone with its
+UTC offset; [usage.md](usage.md) says what the times cover). Beyond that the
+set depends on the path:
 
 - **Filesystem runs**: Convert HTML/JSON and Validation HTML/JSON.
 - **ALM runs**: Conversion Summary JSON (per-test results, including upload
@@ -1241,24 +1266,37 @@ finishes. Both paths produce the **Executive Summary** (HTML / Markdown / JSON
   Summary and the console's **Conversion Failed** dialog each give only a count
   per reason code with one example.
 
-  The ALM Executive Summary also carries a **Carried Forward** card. It reads
-  0 unless this applies: assets an earlier conversion in the same run folder
-  had already uploaded and verified, and that are still Python on the server,
-  are skipped rather than converted again. When the count is not zero, a Next
-  Steps note explains it, and tells two cases apart: assets an earlier
-  *attempt of this same conversion* converted — before a crash relaunch, or
-  before you resumed it — are this run's own work; assets an earlier *run*
-  converted are not. These assets count as converted, not failed, and do
-  not change the verdict. The reports show what their conversion recorded —
-  findings, structure check, the shared libraries an earlier attempt of the
-  same conversion replaced, and duration. A journal written by Phoenix 1.1.5
-  or earlier recorded none of that: the summary and the scan report then say
-  how many carried-forward assets the figures leave out. They carry the same
-  exception as the restart above:
-  if the journal record was written by an earlier version of Phoenix, a test
-  that calls a carried-forward test is refused because the called test has no
-  conversion record in this run, and the run stops. Enter a new Analysis Run
-  ID, run Analysis there, and convert there if it happens.
+  The ALM Executive Summary also carries a **Carried Forward** card. It reads 0
+  unless this applies: assets an earlier conversion in the same run folder had
+  already uploaded and verified are skipped rather than converted again. After
+  the conversion process restarted itself to free memory (a planned restart),
+  the assets this conversion converted are skipped without reading ALM again: no
+  test was in flight, and the conversion kept the run folder locked from one
+  attempt to the next, so no `restore` could run in between
+  ([advanced_troubleshooting.md](advanced_troubleshooting.md) §9). After a crash
+  relaunch, or when you run the conversion again (whichever answer you give to
+  *Resume Previous Run*), each of them is checked on the server once more and
+  skipped only if it is still Python there, and is trusted again after that.
+  Assets an earlier run converted are checked on the server every time. A
+  conversion that ends without converting anything itself — one that closes a
+  wave whose crash budget ran out, for example — rebuilds the outcomes from the
+  conversion journal alone, without reading ALM. When the count is not zero, a
+  Next Steps note explains it, and tells the cases apart: assets an earlier
+  *attempt of this same conversion* converted — before a crash relaunch, before
+  a planned restart, or before you resumed it — are this run's own work; assets
+  an earlier *run* converted are not. Assets carried forward after a planned
+  restart, and assets rebuilt from the journal alone, are counted in notes of
+  their own, which say that ALM was not read for them. These assets count as
+  converted, not failed, and do not change the verdict. The reports show what
+  their conversion recorded — findings, structure check, the shared libraries an
+  earlier attempt of the same conversion replaced, and duration. A journal
+  written by Phoenix 1.1.5 or earlier recorded none of that: the summary and the
+  scan report then say how many carried-forward assets the figures leave out.
+  They carry the same exception as resuming an interrupted conversion (*Upgrade
+  ALM Project*, above): if the journal record was written by an earlier version
+  of Phoenix, a test that calls a carried-forward test is refused because the
+  called test has no conversion record in this run, and the run stops. Enter a
+  new Analysis Run ID, run Analysis there, and convert there if it happens.
 
   When the conversion process crashed natively during the run, a Next Steps
   note says how many times and what became of the crashes — how many were

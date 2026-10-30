@@ -1,6 +1,6 @@
 ---
 title: UFT Phoenix — VBScript to Python migration for OpenText UFT One
-description: Merito UFT Phoenix converts OpenText UFT One VBScript tests to Python, from a local folder or a whole ALM project, with a safety model built for production estates.
+description: Merito UFT Phoenix converts OpenText UFT One VBScript tests to Python, from a local folder or a whole ALM project, with a safety model built for production test suites.
 hide:
   - navigation
   - toc
@@ -28,10 +28,10 @@ To request access to UFT Phoenix, use the **Request access** button below.
 ## Why migrate now
 
 - **VBScript has a shelf life.** Microsoft is retiring VBScript from Windows.
-  Test estates that depend on it carry a growing platform risk.
+  Test suites that depend on it carry a growing platform risk.
 - **Python opens the door.** Python is one of the most widely used languages
   in test automation, with a vast library ecosystem and a deep hiring pool.
-- **Hand conversion does not scale.** An enterprise estate holds thousands
+- **Hand conversion does not scale.** An enterprise test portfolio holds thousands
   of tests and shared actions. Rewriting them by hand is slow, costly and
   error-prone; Phoenix converts them consistently, and tells you exactly
   where a person is still needed.
@@ -45,7 +45,7 @@ UFT One is installed.
 | --- | --- | --- |
 | Source | UFT tests stored on disk or a network share | An entire OpenText Application Quality Management (ALM) project |
 | Result | Converted Python tests in a new output folder; your originals are untouched | The project converted in place, with calls between tests preserved |
-| Best for | Pilots, smaller estates, tests kept in source control | Enterprise estates managed in ALM |
+| Best for | Pilots, smaller test suites, tests kept in source control | Enterprise test portfolios managed in ALM |
 
 Every test is rebuilt through UFT One itself, so what Phoenix produces is a
 genuine UFT Python test, not a text translation. Tests that call each other's
@@ -74,7 +74,7 @@ test cases are counted.
 
 ## Safety first
 
-Your test estate is valuable, so Phoenix is built to be careful with it:
+Your test suite is valuable, so Phoenix is built to be careful with it:
 
 - **Look before you leap.** An analysis run screens the whole project and
   reports what will convert, and what will not, without changing anything
@@ -110,7 +110,7 @@ Phoenix follows a phased engagement, described in the
 3. **Pilot.** Convert a representative sample and prove the results.
 4. **Hardening.** Resolve the blockers the pilot uncovers.
 5. **Migration window.** Convert, verify and sign off.
-6. **Rollout and governance.** Extend to the whole estate, and keep new
+6. **Rollout and governance.** Extend to every remaining test, and keep new
    tests in Python.
 
 ## Supported platforms

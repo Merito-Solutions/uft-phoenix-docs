@@ -1,6 +1,6 @@
 # Enterprise Migration Playbook
 
-The engagement sequence for migrating a UFT VBScript estate to UFT Python
+The engagement sequence for migrating UFT VBScript tests to UFT Python
 with Phoenix. Phases 0–5 name their exit criteria — do not advance without
 them. Companion documents: [alm_safety.md](alm_safety.md) (write-safety
 model), [gui_field_guide.md](gui_field_guide.md) (console reference),
@@ -29,7 +29,7 @@ model), [gui_field_guide.md](gui_field_guide.md) (console reference),
 
 ## 1. Baseline discovery
 
-- Run analysis across each candidate portfolio: on a **filesystem** estate
+- Run analysis across each candidate portfolio: on a **filesystem** test folder
   `uft-migrate scan` (or its alias `analyze`), on an **ALM project**
   `uft-migrate convert --alm --dry-run` — the read-only pass that makes zero
   ALM writes and needs no `--confirm-alm-backup`. Each is what GUI Step 5
@@ -97,7 +97,7 @@ model), [gui_field_guide.md](gui_field_guide.md) (console reference),
   (function libraries, shared object repositories) and every callee of a
   cross-test caller, keeping the Test Plan and Resources paths the same so the
   references resolve.
-- Include at least one test exercising each estate trait: function
+- Include at least one test exercising each feature your tests use: function
   libraries, action parameters, DataTables, object repositories, and a
   cross-test reusable-action caller.
 - If the production project is version-controlled, the pilot project must be
@@ -319,7 +319,7 @@ model), [gui_field_guide.md](gui_field_guide.md) (console reference),
   not be read adds no such failure, but holds approval all the same). Park
   genuinely out-of-scope assets on Step 5 instead.
 
-## 6. Distribution (filesystem estates)
+## 6. Distribution (filesystem conversions)
 
 - Converted filesystem tests are **path-bound**. Their function-library
   links (including `FunctionLibraries\PhoenixVBRuntime.pfl`) and their
@@ -351,7 +351,7 @@ model), [gui_field_guide.md](gui_field_guide.md) (console reference),
   needs explicit sign-off. Parking an asset out of scope is the sanctioned
   alternative, and the parking list is part of the sign-off.
 - Keep the engagement config file (`custom_rule_mappings`,
-  `custom_uft_methods` and, for filesystem estates, `exclude` /
+  `custom_uft_methods` and, for filesystem conversions, `exclude` /
   `exclude_test_paths`) in version control. For ALM, version-control the
   parked test-ID list separately: the Step 5 *Out-of-scope test IDs* /
   `--alm-exclude-test-id` values are not stored in the config file. A change

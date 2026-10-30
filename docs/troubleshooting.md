@@ -178,16 +178,16 @@ run aborts — reconnecting first, so the rollback of this run's uploads can
 still reach the server. Once ALM is reachable again, re-run the conversion with
 the same run id and without `--resume`.
 
-### "ALM discovery failed: …"
-The analysis or conversion stopped at its first step, discovery, which logs in
-to ALM in a process of its own and lists every test in the project's Test Plan.
-It could not finish, so the run stopped instead of going on with a partial
-scope. This run analyzed, converted and wrote nothing. When the run continued
-an unfinished conversion wave — a relaunch after a crash, or a resume — it
-stops the wave instead, with `wave-stopped` and the reason `discovery-failed`
-(see *The conversion stopped and stays open* below): the tests the wave
-converted earlier stay converted, and one may be half-written, so run the same
-command again as soon as you can; it retries discovery.
+### "ALM discovery failed: …" The analysis or conversion stopped at its first
+step, discovery, which logs in to ALM in a process of its own and lists every
+test in the project's Test Plan. It could not finish, so the run stopped instead
+of going on with a partial scope. This run analyzed, converted and wrote
+nothing. When the run continued an unfinished conversion wave — a relaunch after
+a crash or after a planned restart to free memory, or a resume — it stops the
+wave instead, with `wave-stopped` and the reason `discovery-failed` (see *The
+conversion stopped and stays open* below): the tests the wave converted earlier
+stay converted, and one may be half-written, so run the same command again as
+soon as you can; it retries discovery.
 
 **Login.** When the message goes on with *ALM login failed during
 Login(username, password).*, ALM refused the user name or password. Phoenix
@@ -431,6 +431,21 @@ folder.
   run. The command is in
   [advanced_troubleshooting.md](advanced_troubleshooting.md) § *Stale UFT test
   cache (TD_80)*.
+- **A converted test reads `No Run` in Test Lab right after the conversion**,
+  and the ALM execution log says *Unable to open … Test not found*: UFT read a
+  partly deleted copy of the test from TD_80, because a process still held
+  files in it when the cache was purged — usually a leftover UFT Remote Agent
+  (`UFTRemoteAgent.exe`) from an earlier Test Lab run. On the machine running
+  Phoenix, the asset's notes carry a `[warning] UFT test extraction cache
+  (TD_80)` note; the Executive Summary's Next Steps also says what to close
+  when the cache was still not cleared at the end of the run.
+  The converted test in ALM is fine, so this is a false failure: close UFT One,
+  end `UFTRemoteAgent.exe` in Task Manager if it is running, delete
+  `%LOCALAPPDATA%\Temp\TD_80`, and run the test again. Phoenix stops a leftover
+  agent itself when a conversion's purge cannot delete every file after UFT
+  One is closed, and says so in the same note
+  ([advanced_troubleshooting.md](advanced_troubleshooting.md) § *Stale UFT test
+  cache (TD_80)*).
 
 ### A converted test behaves differently with no error reported
 - **You changed which function library a test links after it was converted,
@@ -573,7 +588,9 @@ not tell Phoenix which shared object repositories the test's actions use.
 Phoenix already retried that read on a known transient fault, noting each
 try as *object-repository harvest hit a transient UFT/COM fault (attempt
 n/3), retrying: …*. The test's own files show it uses a shared repository, or
-could not be read. Converting it anyway would give a test that uploads and
+could not be read. Any of the test's action files counts here, including the
+files of an action the test no longer has: without UFT's answer, Phoenix cannot
+tell the two apart. Converting it anyway would give a test that uploads and
 verifies clean, then finds none of the repository's objects at run time, so
 Phoenix stops instead.
 
@@ -584,6 +601,52 @@ how to read the statuses). Check UFT's health and licenses on the conversion
 machine (`uft-migrate doctor`), then run the conversion again. If the same test
 keeps failing, open it in UFT and check that its repository associations
 (*Resources → Associate Repositories*) and the `.tsr` resource itself load.
+
+### "shared object repository NOT carried into the rebuilt test … refusing to upload the test without it"
+An asset ends `aom-build-failed` with an error that reads *shared object
+repository NOT carried into the rebuilt test: <repository>. The source
+associates it, and every object that resolves through it would fail at run
+time; refusing to upload the test without it*. UFT reported the shared object
+repository for one of the source test's actions, and the test Phoenix rebuilt
+from it came out without it. Uploading it would give a test that verifies clean
+and then finds none of the repository's objects at run time, so Phoenix stops
+before any of the test's own files are uploaded.
+
+The run first converts the test again, up to twice, noting *pre-upload build
+failure with an unrecognised message; retrying it as transient*. If it still
+fails, the conversion stops like any other failed asset and rolls back what it
+uploaded. Resource relations the conversion had already added to the test in
+ALM, such as the one to the helper runtime library, stay in place: a rollback
+does not remove relations (see [alm_safety.md](alm_safety.md)).
+
+Open the source test in UFT and check that the repository loads
+(*Resources → Associate Repositories*) and that the `.tsr` resource exists in
+ALM at the path it names. Check UFT's health on the conversion machine
+(`uft-migrate doctor`), then run the conversion again. If the same test keeps
+failing, collect a diagnostics bundle (`uft-migrate diagnostics collect`) and
+send it to Merito with the test's name.
+
+### "[warning] the source test's files associate shared object repository … which UFT reports for none of its actions"
+A converted test's notes hold *[warning] the source test's files associate
+shared object repository <repository>, which UFT reports for none of its
+actions and the rebuilt test does not hold. It is most likely left from an
+action the test no longer has; if one of its actions uses it, associate it
+again in UFT*. The note is a warning, not a failure: it does not stop the test
+from converting (or, in an analysis, from being reported ready).
+
+A test's files in ALM can name a shared object repository that none of its
+actions uses: ALM keeps the files of an action that was deleted from the test
+or replaced, and they still name the repository that action used. Phoenix
+carries the repositories UFT reports for the test's actions. A repository only
+the files name is reported on the test rather than refused, because refusing
+it would stop the whole conversion over a repository the test does not use.
+
+Open the converted test in UFT and check its repository associations
+(*Resources → Associate Repositories*). If one of its actions does find its
+objects in that repository, associate it there again. A test that an earlier
+version converted without its repository, and that you convert again, reports
+it this way too: see [limitations.md](limitations.md) § *Shared object
+repositories on caller tests (fixed in 1.3.4)*.
 
 ### "Post-upload verification failed" (status `upload-verify-failed`)
 After every upload Phoenix re-downloads the test and compares it with the built
@@ -735,7 +798,7 @@ Project**, either answer to *Resume Previous Run*): the wave continues.
 | `snapshot-invalid` | The copy the wave froze of a test is missing or damaged, so the test cannot be restored automatically. | Inspect the test in ALM; if it is not intact, put it back from your ALM backup or version history. Then settle it with the `--accept-current-state` command in the message — it sets the damaged copy aside, and the wave freezes a new one from what ALM holds — and run again. Until the test is settled the conversion stops here every time. |
 | `snapshot-drift` | A test changed on the server after this wave first saw it, and the wave may already have written it, so the wave's copy no longer describes it. When the journal shows the wave never wrote that test — it changed after a Cancel, say, before its upload started — there is no stop: the wave freezes its copy again from what ALM holds, keeps the old copy beside it, notes this on the test and logs `alm-wave-snapshot-refrozen`. | Inspect the test, then either put it back to the wave's copy with the `restore --wave` command in the message and run again, or keep the change: close the wave with the `--abandon-wave` command in the message (refused while any test in the wave may be half-written) and convert again — a new wave starts from what the server holds now. |
 | `wave-scope-changed` | The set of tests the conversion finds changed after the wave started. This attempt wrote nothing to ALM; tests the wave converted earlier stay converted. Tests the wave started with that are missing now can come from a transient fault while ALM listed the Test Plan; Phoenix already ran discovery a second time before it stopped (`alm-discovery-retried`). | Run the conversion again with the same inputs: it runs discovery again. Only if the same tests are missing again, check that the path filters and exclusions are the ones the wave started with, and whether those tests were moved or deleted in ALM. When tests were added instead, or to convert the new scope, close the wave with the `--abandon-wave` command in the message, then run the analysis and the conversion again. |
-| `discovery-failed` | The wave was continuing — after a crash, or on a resume — and discovery, which lists the project's tests first, failed even after its retry (*ALM discovery failed: …* in the detail line). This attempt wrote nothing to ALM and checked nothing yet; tests the wave converted earlier stay converted, and a test a crash interrupted may still be half-written. | Run the same command again: it retries discovery, then continues the wave, checking that test first. If the detail says the login failed, correct the password first (it is not one of the wave's inputs). Until the wave has continued, do not run its tests. See *"ALM discovery failed: …"* above for the other causes. |
+| `discovery-failed` | The wave was continuing — after a crash, after a planned restart, or on a resume — and discovery, which lists the project's tests first, failed even after its retry (*ALM discovery failed: …* in the detail line). This attempt wrote nothing to ALM and checked nothing yet; tests the wave converted earlier stay converted, and a test a crash interrupted may still be half-written. | Run the same command again: it retries discovery, then continues the wave, checking that test first. If the detail says the login failed, correct the password first (it is not one of the wave's inputs). Until the wave has continued, do not run its tests. See *"ALM discovery failed: …"* above for the other causes. |
 | `legacy-in-flight-unverified` | A test that a Phoenix 1.1.4 or earlier run was converting when it stopped could not be proven unchanged since. | Restore it with the plain `restore` command in the message (no `--wave`), from the first copy this run folder kept of the test — the message says when it was saved; it can be older than the run that stopped, so check it is the version you want — or inspect the test and settle it with the `--accept-current-state` command given; then run again. |
 
 Any other reason is explained the same way in the message itself.
@@ -850,8 +913,9 @@ it is safe to run at any time.
 
 These appear when a **converted** test executes. Most are runtime issues in the
 test's environment or object repository, but check the conversion notes first:
-some documented limitations and one open defect show up this way. Two rules
-first:
+some documented limitations show up this way, and so does, for a test converted
+by 1.3.3 or earlier, a shared object repository that was not carried (step 1
+under *Cannot identify the object* below). Two rules first:
 
 1. **Prefer running converted ALM tests from ALM.** That is how they will be
    run in production — from your existing Test Lab sets in the ALM
@@ -912,11 +976,15 @@ object-identification failures your baseline hid*.
 
 Work through, in order:
 
-1. **Check this asset's conversion notes.** Look for `[warning] shared object
-   repository NOT carried into the rebuilt test`. If it is there, re-associate
-   the repository in UFT (**Resources > Associate Repositories**) — see
-   [limitations.md](limitations.md) § *Known defect (ALM path): a shared object
-   repository can be dropped on a caller test*. Also review
+1. **Check this asset's conversion notes.** A test converted by 1.3.3 or
+   earlier may hold `[warning] shared object repository NOT carried into the
+   rebuilt test`. If it does, re-associate the repository in UFT
+   (**Resources > Associate Repositories**) — see
+   [limitations.md](limitations.md) § *Shared object repositories on caller
+   tests (fixed in 1.3.4)*. A test converted by this version may hold
+   `[warning] the source test's files associate shared object repository`;
+   if the object belongs to that repository, associate it again the same way.
+   Also review
    [limitations.md](limitations.md) § *Test-level artifacts not carried*:
    Environment variables, externally linked Data Tables and Record-and-Run
    settings do not travel with a conversion, and a test can fail at run time for
@@ -953,7 +1021,7 @@ drill-down pages (`analysis_*.html`), which are always written.
 | `scan_report.html` | Per-asset blockers and warnings from analysis |
 | `scan_report.json` | The verdict, and in its `licensing` block the test-case count, the limit and the edition the analysis saw |
 | `scoping_summary.html`, `scoping_summary.json` | The analysis in counts and summary figures, with no names, paths, identifiers or test code, to send Merito for scoping a license if you choose; written by every analysis |
-| `executive_summary.html` | Verdict, next steps, links to the detail reports. Written by the `run` command (filesystem or ALM) and by `summarize` — not by `scan`, `convert`, or ALM analysis |
+| `executive_summary.html` | Verdict, next steps, links to the detail reports, and, when the run recorded them, the run's start, finish and elapsed time (Run Timing, in local time). Written by the `run` command (filesystem or ALM) and by `summarize` — not by `scan`, `convert`, or ALM analysis |
 | `analysis_assets_failed.html` | Failed assets with their causes (ALM) |
 | `alm_preflight.json` | Why the pre-flight gate refused the run — no ALM writes were made when it did |
 | `alm_aom_results.json` | Per-test ALM pipeline results, incl. blockers and upload verification |

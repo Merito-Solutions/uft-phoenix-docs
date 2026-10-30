@@ -130,12 +130,18 @@ finish leaves its wave open unless the wave was rolled back; see
 conversions*. A later conversion in the same run
 folder skips an asset when the journal records it uploaded and verified,
 nothing recorded after that touched it again, **and** the server still holds
-its complete Python payload; the asset is reported `ok`, flagged `resumed`, and
+its complete Python payload (after the conversion process restarted itself
+to free memory, the assets this conversion wave converted are skipped
+without reading ALM again, until a crash relaunch or a new launch has them
+checked once more; an earlier run's assets are checked every time; see
+[advanced_troubleshooting.md](advanced_troubleshooting.md) §9, *Planned
+restarts*); the asset is reported `ok`, flagged `resumed`, and
 listed under **Carried Forward**. Its record in the reports is the one its
 conversion made — findings, structure check, duration and notes, and, when an
 earlier attempt of the same conversion wave converted it (a crash relaunch, a
-resume), the shared libraries it replaced — kept in `resume\alm_asset_details\`
-beside the journal; a journal an earlier Phoenix wrote has none, and the
+planned restart, a resume), the shared libraries it replaced — kept in
+`resume\alm_asset_details\` beside the journal; a journal an earlier
+Phoenix wrote has none, and the
 reports say how many assets that leaves out. No flag turns this on. Because ALM runs
 default to the `<Domain>-<Project>` folder, a repeat conversion of the same
 project resumes unless you pass a new `--run-id` and run the analysis under
@@ -224,7 +230,7 @@ they diverge in **both** directions:
   in dependency-graph health. A scan carrying 3 blockers exits 0 while its own
   `scan_report.html` renders the red "Hold conversion approval" badge.
 - **Exit 2, verdict `go`.** Under `--strictness strict` a review-required
-  finding fails the gate even when nothing blocks conversion — an estate whose
+  finding fails the gate even when nothing blocks conversion — a test set whose
   only findings are `GoTo` lines exits 2 with `go_no_go: "go"` and
   `summary.gate_failures: ["3 scan review-required finding(s) remain."]`.
 - **`"status": "ok"`, exit 0, verdict `go`, `ready_for_approval: false`.**
@@ -727,7 +733,15 @@ Safety and writes:
 `--purge-uft-cache` is the real cache control: it clears UFT's TD_80
 test-extraction cache before every run, and again after any run that wrote to
 ALM, on the machine Phoenix runs on. Every **other** execution host still needs
-`%LOCALAPPDATA%\Temp\TD_80` cleared by hand after a conversion.
+`%LOCALAPPDATA%\Temp\TD_80` cleared by hand after a conversion. Each asset's
+notes record what each purge did. When files still cannot be deleted after
+UFT One is closed, Phoenix stops a leftover UFT Remote Agent
+(`UFTRemoteAgent.exe`) and purges once more; a purge that still leaves files
+behind is a `[warning]` note and, when it is the run's last purge, an
+Executive Summary Next Step that says what to close and delete before you run
+the converted tests in Test Lab
+([advanced_troubleshooting.md](advanced_troubleshooting.md) § *Stale UFT test
+cache (TD_80)*).
 `--purge-alm-cache/--no-purge-alm-cache` is accepted for compatibility and does
 nothing.
 
@@ -962,9 +976,14 @@ that the test passes. Do one of:
   The filesystem path keeps its own copy at
   `FunctionLibraries\PhoenixVBRuntime.pfl` under the output root.
 - **Object repositories and DataTables** — carried per action, byte-identical.
-  One open limitation: a caller that owns a **shared** `.tsr` repository can
-  lose that association. The build discloses it when it happens, and converting
-  the test again does not repair it — re-attach the shared repository in UFT.
+  Shared `.tsr` repositories are re-associated per action, on the ALM path only.
+  A test that would come out without one UFT reports for its actions is refused
+  (`aom-build-failed`) rather than uploaded; a repository named only in the
+  test's files, such as one left by an action deleted from the test, is
+  reported as a warning on that test. Versions 1.3.3 and earlier could drop the shared
+  repository of a test that calls another test's actions; to find and repair
+  such a test, see [limitations.md](limitations.md) § *Shared object
+  repositories on caller tests (fixed in 1.3.4)*.
 - **Cross-test shareable ("reusable") action references** — when a converted
   caller invokes an action that lives in another test (`RunAction "X
   [OtherTest]"`, `LoadAndRunAction`), those external references are rebuilt
@@ -1126,6 +1145,38 @@ In the run folder, after an ALM analysis or conversion:
 - `alm_analysis_results.json` — the analysis payload frozen when the pre-flight
   gate passed, so the conversion cannot overwrite the evidence that authorised
   it.
+- `analysis_reports\` — the analysis's own report set, copied byte for byte
+  before the conversion rewrites those files under the same names:
+  `scan_report.*`, the `analysis_*.html` pages, `conversion_summary.json`,
+  `observability_metrics.json`, `dependency_graph.json`, `file_manifest.txt`,
+  the scoping summary, the executive summary when the analysis wrote one, and
+  `migration_log.txt` as it stood when the conversion started (so it ends
+  with the conversion's first lines). Once a conversion has run in the
+  folder, open `analysis_reports\scan_report.html` for what the analysis
+  found. A conversion keeps the copy before it writes any report of its own:
+  when it reaches the pre-flight gate, whatever the gate decides, or when it
+  finds no test to convert (nothing discovered, or every test parked), if the
+  folder still holds the analysis's results. Reports a conversion wrote are
+  never copied as the analysis's.
+  A relaunch, a planned restart, a resume or a later wave of a conversion of
+  the same analysis leaves the copy as it is; the first conversion after a new
+  analysis (a re-analysis or a failed-only refresh) replaces it. So it is
+  normally the analysis the latest conversion was judged on. When the copy
+  of a new analysis cannot be made, the run log has an
+  `alm-analysis-reports-not-kept` warning and the conversion goes on; a copy
+  left in the folder is then of an earlier analysis. `kept_analysis.json`
+  inside it names the analysis it holds (the SHA-256 of that analysis's
+  `alm_aom_results.json`, the same bytes `alm_analysis_results.json` holds
+  once the pre-flight gate has passed) and lists the files kept. A
+  conversion in a folder that holds no analysis, and a gate rehearsal
+  (`--upload --dry-run`), keep nothing. The conversion's executive summary
+  links the copy, and so do the Migration Console's Analysis Reports links
+  after a conversion, only while it holds the analysis the folder is judged
+  on: never an earlier analysis's copy. A folder named
+  `analysis_reports.partial` is a copy a crash or an error cut short; one
+  named `analysis_reports.old` is the copy a newer one replaced, left only
+  when it could not be deleted or the process was stopped in between. The
+  next conversion that keeps a copy deletes both.
 - `alm_preflight.json` — the pre-flight gate's verdict and every disqualified
   asset by name.
 - `conversion_summary.json` and `observability_metrics.json` — run-level
@@ -1181,7 +1232,8 @@ In the run folder, after an ALM analysis or conversion:
   never copied into it (a dump may hold the ALM password); `crash.json` names
   where Windows wrote it.
 - After a crash recovery the report set describes the whole conversion: its
-  total time covers every attempt of the conversion wave, the crashed one
+  total time (*Total conversion time*; an analysis's reports say *Total
+  analysis time*) covers every attempt of the conversion wave, the crashed one
   included, but not the time between attempts (the timing note says how many
   there were and how long it left out), assets converted before the crash
   keep the duration measured then, and a **Crash Recovery Notes** section on
@@ -1196,6 +1248,31 @@ In the run folder, after an ALM analysis or conversion:
   recommendation is *Scoping required before conversion*; its first Next Step
   is the over-limit notice; and `executive_summary.json` sets
   `approval.license_required`.
+  A summary also says when the run started and finished and how long it
+  took, whenever the run recorded those times: every `run` does, and
+  `summarize` reads them back from an ALM scan report or from the run
+  folder's `run` checkpoint. A `summarize` of filesystem report files named
+  directly (`--scan-json` and the like), or of a run folder where no `run`
+  finished, has no Run Timing. The times show as a **Run Timing** section and
+  an **Elapsed Time** card, and, in
+  `executive_summary.json`, a `timing` object beside `summary` and `approval`
+  (`started_utc`, `finished_utc`, `elapsed_seconds`, `run` — `analysis` or
+  `conversion` — and `basis`). A conversion is timed over its conversion wave,
+  from the start of its first attempt to the end of its last, so a wave that
+  a crash relaunch, a planned restart or a resume split into attempts is one
+  run; `attempts` says how many there were. The elapsed time includes the time
+  between attempts; the timing report's total conversion time leaves it out,
+  and when there was more than one attempt the summary gives both. An
+  analysis report that combines passes (a failed-only refresh) is timed the
+  same way across its passes. A filesystem `run`, and a conversion the
+  pre-flight gate refused, is timed from the run's first start (a `--resume`
+  keeps it) to its end.
+- Times in the reports — each HTML report's *Generated* line, the timing
+  report's *Run started* and *Run completed*, the executive summary's Run
+  Timing — are in the local time zone of the computer that wrote them, with
+  the zone and its UTC offset, for example
+  `2026-10-27 9:23:17 PM PDT (UTC-07:00)`. The JSON files, `migration_log.txt`
+  and the journals keep UTC (ISO 8601, ending in `Z`): they are data.
 
 Outside the run folder:
 

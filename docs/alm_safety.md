@@ -352,36 +352,36 @@ run's result.
   and may keep running after a Cancel. Close it, or end those processes,
   before using UFT on that machine. The next conversion or Deep analysis
   closes it automatically.
-- **Every upload conversion is a conversion wave.** A wave is one
-  all-or-nothing conversion of the project, recorded in
-  `resume/alm_test_results.ndjson` in the run folder as it goes. It lasts
-  until the conversion finishes or the wave is rolled back, across every
-  attempt it takes: a relaunch after a native crash, and a launch after a
-  cancel, a stop or a crash recovery could not get past. A launch with the
-  **same inputs** — the same command line apart from `--run-id`, `--resume`,
-  `--failed-only` and the value of `--password`; in the console, the same
-  selections — continues an unfinished wave, whether or not you choose to
-  resume: in the GUI either answer in *Resume Previous Run*, on the CLI with or
-  without `--resume`. A continued wave keeps the scope it started with and does
-  not run the pre-flight gate again; it puts the gate report it started under
-  back in `alm_preflight.json`. Its discovery must find that scope again: when
-  tests the wave started with are missing, discovery runs once more, and if
-  they are still missing the conversion stops (`wave-scope-changed`) before it
-  writes anything. A transient fault while ALM lists the Test Plan can cause
-  that, so run the conversion again first; check the scope, and ALM, only if
-  the same tests are missing again. A discovery that fails outright stops the
-  wave too (`discovery-failed`), with nothing written: run the same command
-  again, which retries discovery and then checks any test a crash left
-  half-written. A launch with **other inputs** closes an open
-  wave that has not written any test yet — one cancelled before its first
-  upload, for example — and starts a new one. Once the open wave has written a
-  test, such a launch is refused, with the options that differ and the command
-  that closes the wave; and no new wave starts while any wave in the run
-  folder may still hold a half-written or half-restored test. A refusal writes
-  nothing.
-  [troubleshooting.md](troubleshooting.md) § *Native crashes and interrupted
-  ALM conversions* covers each refusal, and how to close a wave you do not
-  want to continue.
+- **Every upload conversion is a conversion wave.** A wave is one all-or-nothing
+  conversion of the project, recorded in `resume/alm_test_results.ndjson` in the
+  run folder as it goes. It lasts until the conversion finishes or the wave is
+  rolled back, across every attempt it takes: a relaunch after a native crash, a
+  relaunch after the conversion process restarted itself to free memory (a
+  planned restart, [advanced_troubleshooting.md](advanced_troubleshooting.md)
+  §9), and a launch after a cancel, a stop or a crash recovery could not get
+  past. A launch with the **same inputs** — the same command line apart from
+  `--run-id`, `--resume`, `--failed-only` and the value of `--password`; in the
+  console, the same selections — continues an unfinished wave, whether or not
+  you choose to resume: in the GUI either answer in *Resume Previous Run*, on
+  the CLI with or without `--resume`. A continued wave keeps the scope it
+  started with and does not run the pre-flight gate again; it puts the gate
+  report it started under back in `alm_preflight.json`. Its discovery must find
+  that scope again: when tests the wave started with are missing, discovery runs
+  once more, and if they are still missing the conversion stops
+  (`wave-scope-changed`) before it writes anything. A transient fault while ALM
+  lists the Test Plan can cause that, so run the conversion again first; check
+  the scope, and ALM, only if the same tests are missing again. A discovery that
+  fails outright stops the wave too (`discovery-failed`), with nothing written:
+  run the same command again, which retries discovery and then checks any test a
+  crash left half-written. A launch with **other inputs** closes an open wave
+  that has not written any test yet — one cancelled before its first upload, for
+  example — and starts a new one. Once the open wave has written a test, such a
+  launch is refused, with the options that differ and the command that closes
+  the wave; and no new wave starts while any wave in the run folder may still
+  hold a half-written or half-restored test. A refusal writes nothing.
+  [troubleshooting.md](troubleshooting.md) § *Native crashes and interrupted ALM
+  conversions* covers each refusal, and how to close a wave you do not want to
+  continue.
 - **The free edition's limit never stops a wave already under way.** A new
   wave over the limit is refused before it starts, with nothing written to
   ALM (`license-limit`); once a wave has started, continuing it, rolling it
@@ -407,6 +407,15 @@ run's result.
   an asset only when the journal shows it was uploaded and verified, nothing
   recorded after that touched it again, **and** the server still holds its
   complete Python payload. That happens whether or not you choose to resume.
+  One exception: right after the conversion process restarted itself to free
+  memory (a planned restart,
+  [advanced_troubleshooting.md](advanced_troubleshooting.md) §9), the assets
+  this conversion wave converted are skipped without reading ALM again: no
+  test was in flight, and the run folder stayed locked from one attempt to
+  the next, so no `restore` could run in between. After a crash relaunch or
+  a new launch of the conversion, each of them is checked on the server once
+  more, and is trusted again after that. Assets an earlier run converted are
+  checked on the server every time.
   On the CLI, `--resume` with identical arguments is accepted while the run is
   still marked running or its wave is unfinished, and refused (exit 2)
   otherwise. Everything else is converted again. A skipped asset is reported
@@ -612,11 +621,19 @@ cached Python build. `restore` clears it nowhere.
 On the machine running Phoenix the tool clears that cache itself, and closes
 UFT to do it: a conversion or a Deep analysis force-closes UFT (`UFT.exe`,
 `QtpAutomationAgent.exe`) without saving and then deletes that Windows user's
-TD_80, so save your work in UFT before starting either. A conversion that
-wrote to ALM clears it again at the end, including after an automatic
-rollback. A Standard analysis clears it without closing UFT. Clearing is
-best-effort, and each asset's notes record whether it succeeded. No other
-machine is ever cleared.
+TD_80, so save your work in UFT before starting either. If files in TD_80
+still cannot be deleted once UFT is closed, it also stops a leftover UFT
+Remote Agent (`UFTRemoteAgent.exe`), which ends any Test Lab run on that machine, and
+deletes once more; it never does this while a Test Lab run that Phoenix
+started is in progress. A conversion that wrote to ALM clears it again at the
+end, including after an automatic rollback. A Standard analysis clears it
+without closing UFT or the UFT Remote Agent. Clearing is best-effort, and each
+asset's notes record what happened: purged, not present, or a `[warning]` that
+names what was left and what to close before you run the converted tests in
+Test Lab. When the run's last purge left files behind, the Executive Summary's
+Next Steps says so too; a warning from an earlier purge that a later one in
+the same run cleared stays in the asset's notes only. No other machine is
+ever cleared.
 
 ## Credentials
 

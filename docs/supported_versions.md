@@ -249,7 +249,7 @@ that path any hit lands in the report's blockers and forces
 `go_no_go: no-go`. **Whole-ALM-project analysis and conversion do not run
 these detectors**, so on the main ALM path these constructs neither block the
 test nor change the verdict — the exceptions are `ExecuteFile` and statement
-`ExecuteGlobal`, which the converter blocks as well. Sweep an ALM estate for
+`ExecuteGlobal`, which the converter blocks as well. Sweep an ALM project for
 the rest by hand before converting (see [limitations.md](limitations.md)):
 
 - Checkpoint/OutputValue objects
@@ -305,4 +305,4 @@ not converted or linked at all. Verify library linkage in ALM before
 migrating.
 
 See [limitations.md](limitations.md) for the pre-migration sweep that finds
-these constructs in a source estate.
+these constructs in your source tests.
