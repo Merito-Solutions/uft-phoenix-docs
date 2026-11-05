@@ -31,7 +31,7 @@ installer does not replace it. It detects it and offers to remove it; see
 | --- | --- |
 | Administrator rights | Required. The install is per-machine: Program Files, `HKLM`, the machine PATH and All-Users shortcuts. |
 | Windows 10/11 or Windows Server 2019+ | Phoenix is Windows-native; UFT/ALM COM automation requires Windows. |
-| Python | **None.** The package installs and runs on its own sealed 32-bit Python 3.14.0 runtime. Nothing is downloaded, and no Python already on the machine is used. |
+| Python | **None.** The package installs and runs on its own sealed 32-bit Python 3.14.10 runtime. Nothing is downloaded, and no Python already on the machine is used. |
 | OpenText UFT One 26.1 or 26.3 | Required on the conversion machine for **both** conversion paths (filesystem and ALM — both are AOM-canonical) and on every machine that executes converted tests. Install the Python scripting component, then add the IronPython files neither installer ships — `doctor` names them; see [troubleshooting.md](troubleshooting.md). |
 | ALM Client registration | Required for ALM workflows only — install from your ALM server's Tools page (ALM Client Launcher / ALM Connectivity add-in). The supported servers are OpenText Application Quality Management (formerly Application Lifecycle Management) 24.1, 25.1 and 26.1; older versions are not supported, though backward compatibility may still carry one — see [supported_versions.md](supported_versions.md). Filesystem conversions work without it. |
 | Internet access | **None**, for the install or for a conversion. |
