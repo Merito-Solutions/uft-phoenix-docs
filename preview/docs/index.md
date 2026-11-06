@@ -1,6 +1,6 @@
 ---
 title: UFT Phoenix — VBScript to Python migration for OpenText UFT One
-description: Merito UFT Phoenix converts OpenText UFT One VBScript tests to Python, from a local folder or a whole ALM project, with a safety model built for production estates.
+description: Merito UFT Phoenix converts OpenText UFT One VBScript tests to Python, from a local folder or a whole ALM project, with a safety model built for production test suites.
 hide:
   - navigation
   - toc
@@ -20,7 +20,7 @@ rewritten by hand.
 
 To request access to UFT Phoenix, use the **Request access** button below.
 
-[Request access](https://www.merito.com/resources/downloads/merito-uft-phoenix-vbs-to-python-utility?utm_source=other&utm_medium=referral&utm_campaign=merito-uft-phoenix-vbs-to-python-utility-5100009){ .md-button .md-button--primary }
+[Request access](https://www.merito.com/request-access/uft-phoenix?utm_source=other&utm_medium=referral&utm_campaign=merito-uft-phoenix-vbs-to-python-utility-5100009){ .md-button .md-button--primary }
 [Talk to Merito](https://www.merito.com/book-consultation?utm_source=other&utm_medium=referral&utm_campaign=merito-uft-phoenix-vbs-to-python-utility-5100009){ .md-button }
 
 ---
@@ -28,10 +28,10 @@ To request access to UFT Phoenix, use the **Request access** button below.
 ## Why migrate now
 
 - **VBScript has a shelf life.** Microsoft is retiring VBScript from Windows.
-  Test estates that depend on it carry a growing platform risk.
+  Test suites that depend on it carry a growing platform risk.
 - **Python opens the door.** Python is one of the most widely used languages
   in test automation, with a vast library ecosystem and a deep hiring pool.
-- **Hand conversion does not scale.** An enterprise estate holds thousands
+- **Hand conversion does not scale.** An enterprise test portfolio holds thousands
   of tests and shared actions. Rewriting them by hand is slow, costly and
   error-prone; Phoenix converts them consistently, and tells you exactly
   where a person is still needed.
@@ -45,7 +45,7 @@ UFT One is installed.
 | --- | --- | --- |
 | Source | UFT tests stored on disk or a network share | An entire OpenText Application Quality Management (ALM) project |
 | Result | Converted Python tests in a new output folder; your originals are untouched | The project converted in place, with calls between tests preserved |
-| Best for | Pilots, smaller estates, tests kept in source control | Enterprise estates managed in ALM |
+| Best for | Pilots, smaller test suites, tests kept in source control | Enterprise test portfolios managed in ALM |
 
 Every test is rebuilt through UFT One itself, so what Phoenix produces is a
 genuine UFT Python test, not a text translation. Tests that call each other's
@@ -55,9 +55,26 @@ The **Migration Console** walks you through a migration step by step. For
 automation and pipelines, everything is also available from the command
 line.
 
+## Free for conversions of up to 100 test cases
+
+The free edition of Phoenix converts an ALM project, or a folder of tests,
+that holds up to 100 UFT One GUI tests. Its analysis has no limit, so you can
+measure a project of any size, see what converts, and decide from there.
+
+A larger conversion needs a license from Merito. Request scoping, and we will
+size the migration with you. If you like, send us the scoping summary the
+analysis writes: it holds counts and summary figures, with no names, paths,
+identifiers or test code.
+
+[Request scoping](https://www.merito.com/solutions/uft-phoenix/scope?utm_source=other&utm_medium=referral&utm_campaign=merito-uft-phoenix-vbs-to-python-utility-5100009){ .md-button }
+
+A license is a file you install. Phoenix checks it on your own machine and
+never contacts Merito. [Free Edition and Licensing](licensing.md) explains how
+test cases are counted.
+
 ## Safety first
 
-Your test estate is valuable, so Phoenix is built to be careful with it:
+Your test suite is valuable, so Phoenix is built to be careful with it:
 
 - **Look before you leap.** An analysis run screens the whole project and
   reports what will convert, and what will not, without changing anything
@@ -69,8 +86,13 @@ Your test estate is valuable, so Phoenix is built to be careful with it:
   a backup of the project exists.
 - **History is kept.** On version-controlled ALM projects, each converted
   test gets a new version, and the original stays in version history.
-- **Fully offline.** Installation and conversion need no internet access,
-  and nothing leaves your network.
+- **Fully offline.** Installation, license checks and conversion need no
+  internet access, and nothing leaves your network.
+- **Support built in.** Phoenix keeps a diagnostics log all the time, so
+  there is nothing to switch on first, and a recent problem can be collected
+  after it happened. One click, or one Start Menu shortcut, builds a bundle
+  for Merito support with passwords removed and your project and test names
+  replaced. Nothing leaves your PC until you send it.
 
 Read the full [ALM Safety](alm_safety.md) guide for the complete list of what
 a conversion writes, and how to roll it back.
@@ -82,18 +104,20 @@ Phoenix follows a phased engagement, described in the
 
 1. **Readiness.** Check the conversion machine, UFT One and the ALM
    connection.
-2. **Discovery.** Analyze the estate and see what converts automatically.
+2. **Discovery.** Analyze your tests, see what converts automatically, and
+   count the test cases. A conversion of more than 100 is scoped and licensed
+   here.
 3. **Pilot.** Convert a representative sample and prove the results.
 4. **Hardening.** Resolve the blockers the pilot uncovers.
 5. **Migration window.** Convert, verify and sign off.
-6. **Rollout and governance.** Extend to the whole estate, and keep new
+6. **Rollout and governance.** Extend to every remaining test, and keep new
    tests in Python.
 
 ## Supported platforms
 
 | Component | Supported |
 | --- | --- |
-| OpenText UFT One | 26.1, with Python test support installed |
+| OpenText UFT One | 26.1 and 26.3, with Python test support installed |
 | OpenText Application Quality Management (ALM) | 24.1, 25.1 and 26.1 |
 | Windows | 10 and 11, Server 2019 and later |
 | Source tests | UFT / QTP 11+ GUI tests written in VBScript |
@@ -113,6 +137,7 @@ They are written for the engineers who run the migration.
 | [Installation](install.md) | Prerequisites, the Windows installer (interactive and silent) and the environment check. |
 | [Usage](usage.md) | Both conversion paths — a local folder of tests or a whole ALM project — end to end. |
 | [Supported Versions](supported_versions.md) | Supported Windows, UFT One and ALM versions, and exactly what converts. |
+| [Free Edition and Licensing](licensing.md) | What the free edition converts, how test cases are counted, and how to install and check a license. |
 
 **Using the Console**
 
@@ -128,7 +153,7 @@ They are written for the engineers who run the migration.
 | --- | --- |
 | [ALM Safety](alm_safety.md) | The write-safety model, everything a conversion writes to ALM, and how rollback works. |
 | [Blocker Remediation](remediation.md) | How to fix each blocker that keeps a test from converting. |
-| [Troubleshooting](troubleshooting.md) | Diagnosing environment, conversion and upload problems. |
+| [Troubleshooting](troubleshooting.md) | Diagnosing environment, conversion and upload problems, and collecting diagnostics for Merito support. |
 | [Advanced Troubleshooting](advanced_troubleshooting.md) | Deep diagnostics for support engineers and migration leads. |
 | [Known Limitations](limitations.md) | What Phoenix does not do, and the constructs that need a human. |
 

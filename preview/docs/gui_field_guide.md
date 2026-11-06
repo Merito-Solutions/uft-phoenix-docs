@@ -25,14 +25,106 @@ pipeline later. Three things it does not show:
 
 ---
 
+## The navigation row
+
+Along the bottom of every step: **Back**, **Collect Diagnostics…** and
+**Next**.
+
+**Collect Diagnostics…** writes a support bundle for Merito support: the
+console's own log and those of the processes it started, the environment
+(Windows, Python, the UFT One and ALM client versions, Windows' crash reports)
+and the current run's logs and results — with your ALM password and test
+content left out and ALM names replaced by tokens. It works on every step,
+including after a failed analysis and while a conversion is running, which is
+how a hung run is collected. It takes the run folder of the run in progress,
+else the last analysis's, else the one the current Run ID names; it has no
+field of its own.
+
+- If crash dumps or the scripts of failed tests exist for that run, one
+  question asks *Also save N crash dump(s) and the scripts of M failed test(s)
+  to a SEPARATE file?*, naming only the kinds it found. **Yes** saves the logs
+  and that separate file (`…-EXTRAS-SENSITIVE.zip`) with only what the
+  question named, **No** the logs only, **Cancel** nothing. A dump can hold
+  your ALM password and test data, and the scripts are your test code: send
+  that file only if Merito support asks for it. When there is nothing of
+  either kind, there is no question.
+- While it runs, the button reads **Collecting…** and is disabled; the rest of
+  the console stays usable.
+- **Diagnostics Saved** names the zip under `out\_support\` and its size, says
+  that nothing was sent, names the separate file when you made one — or, when
+  you answered **Yes** and it could not be written, says why — and opens the
+  folder. The folder beside the zip holds the same files unzipped, so you
+  can read them before you send the zip. **Diagnostics Not Collected** gives
+  the collector's reason, which names the rule that stopped it, never a value.
+
+Nothing is sent anywhere: you send the zip yourself. What a bundle holds, and
+what it never holds, is in [troubleshooting.md](troubleshooting.md) § *Collect
+diagnostics for Merito support*.
+
+The button is one of three ways in. When a conversion fails, its *Conversion
+Failed* dialog asks whether to collect at once (see *Run Analysis* in Step 5
+below). And **Start Menu > Merito > Merito UFT Phoenix Collect Diagnostics**
+collects without the console at all — after you closed it, or when it will not
+start — with the same question about crash dumps and test scripts, a small
+*Collecting diagnostics for Merito support…* window while it works, and the
+same *Diagnostics Saved*.
+
+---
+
+## The version line
+
+The bottom-left corner of the dark panel on the left, the one that lists the
+steps, names the version of Phoenix you are running and its edition, on two
+lines. The first reads *Version* and the version number, the same number
+`uft-migrate --version` prints. The second names the edition: *Free edition ·
+up to 100 tests*, or, with a license installed, *Licensed to* and the
+organization the license names, then its limit — *Licensed to Contoso Ltd ·
+up to 500 tests*, or *· no test limit* (a long name is cut short). A license
+that names ALM projects adds them, each as domain/project — *Licensed to
+Contoso Ltd · up to 500 tests · SALES/CRM and SALES/ERP*. The line names two
+at most and counts the rest — *SALES/CRM, SALES/ERP +2 more* — and resting
+the pointer on it shows the whole label, every project and the full name
+included; `uft-migrate license`, `doctor` and the reports always list them
+all. They are
+the panel's last lines on every step, Step 1 included, and stay at the bottom
+at any window size. Quote them when you contact Merito support; a diagnostics
+bundle records them for you.
+
+The edition is shown here, never set: the console has no license field. A
+license is installed with `uft-migrate license install` or by the installer
+([licensing.md](licensing.md)). The console reads the installed licenses
+again when you enter Step 5, at **Next** and when you start a conversion, so a
+license installed while it is open shows here by the next of those. On the
+Upgrade ALM Project workflow the line names the edition for the project you
+chose: a license that names other ALM projects leaves it reading *Free
+edition · up to 100 tests*.
+
+On an installed copy the first line is the number alone. A first line that
+ends *· development copy* means this console is not running from an installed
+package — from a copy of the source code, for example — so the number names
+the last build, not necessarily the code that is running. Say so when you
+quote it.
+
+---
+
 ## Step 1 — Welcome
 
-Orientation screen. It carries exactly one button, **Get Quote**, which opens
+Orientation screen. Apart from the navigation row, it carries exactly one
+button, **Get Quote**, which opens
 merito.com/get-a-quote in your browser. **Book a migration services
 consultation** is not on this screen: it lives in the step header card
 ("Need Merito Professional Services to lead the migration?"), which is hidden
 on Step 1 and shown on Steps 2–6, and it opens a different page,
 merito.com/book-consultation. Nothing on this screen affects the migration.
+
+**Get Quote** is about OpenText licenses and renewals and Merito's services.
+It has nothing to do with the UFT Phoenix license that lifts the free
+edition's limit of 100 test cases, which has no control anywhere in the
+console ([licensing.md](licensing.md)). When an analysis counts more test
+cases than your edition converts, the step header card on Steps 2–6 names the
+count instead — *101 test cases, over the free edition limit of 100.* — and
+its button reads **Scope this conversion with Merito**, which opens Merito's
+consultation request form (see *Over the free-edition limit* under Step 5).
 
 ---
 
@@ -44,7 +136,7 @@ for the ALM workflow.
 
 | Choice | What it means | Choose it when |
 | --- | --- | --- |
-| **Upgrade ALM Project** | Convert every UFT GUI test in the ALM project's Test Plan — whole-project, all or nothing. | Migrating an ALM estate. Requires a project backup/snapshot — the run refuses to upload without the backup confirmation. |
+| **Upgrade ALM Project** | Convert every UFT GUI test in the ALM project's Test Plan — whole-project, all or nothing. | Migrating a whole ALM project. Requires a project backup/snapshot — the run refuses to upload without the backup confirmation. |
 | **UFT FileSystem** | Convert tests stored on disk (local folders or UNC shares). | Tests are version-controlled or exported to disk rather than stored in ALM. |
 
 There is no folder- or count-scoped ALM conversion. ALM conversion is
@@ -58,9 +150,14 @@ stay in their own tests and are consumed by reference.
 The **Flow preview** text under the choices summarizes the steps ahead for
 the selected workflow.
 
-*Example:* to pilot before committing an estate, use **UFT FileSystem**
+*Example:* to pilot before committing a conversion, use **UFT FileSystem**
 against a copy of representative tests, or stand up a dedicated pilot ALM
 project seeded with copies and run **Upgrade ALM Project** against it.
+When the tests you are piloting come from an ALM project or folder of more
+than 100 test cases, the pilot needs a license too: whatever your reason,
+test cases you copy or move out of an ALM project or folder still count
+toward any conversion of that project or folder (license agreement, section
+2.g; see [licensing.md](licensing.md)).
 
 ---
 
@@ -228,7 +325,12 @@ dropdowns. The login and the domain listing run on a background thread with a
 project run in the foreground, so the console can pause while a slow server
 answers those. Do this before anything else ALM-related — the Domain and
 Project dropdowns stay disabled until connected. Domain + Project is the
-entire ALM scope selection; there is no folder picker.
+entire ALM scope selection; there is no folder picker. When the login, the
+domain's project list or the project check fails, the error dialog (*ALM
+Connection Timed Out*, *ALM Authentication Failed*, *ALM Connection Failed*,
+*ALM Project Discovery Failed*, *ALM Project Access Failed*) ends with the line
+*To send details to Merito support, use Collect Diagnostics (bottom left).
+Nothing is sent automatically.*
 
 **Domain / Project** — pick after Connect. Single-domain accounts
 auto-select. The chosen project is converted whole — every UFT GUI test in
@@ -256,7 +358,9 @@ pre-seeded into the box and re-merged on every run, so they hold whatever else
 you type. On the **UFT FileSystem** workflow the defaults `**/.git/**`,
 `**/out/**` and `**/__pycache__/**` apply only while the box is empty — the
 moment you type a pattern the box *replaces* them rather than adding to them,
-so re-add any of the three you still want.
+so re-add any of the three you still want. Replaced, they no longer keep the
+tests under those folders out of the free edition's test-case count either
+([licensing.md](licensing.md)).
 *Example:* exclude `**/Archive/**` to skip a graveyard folder.
 
 **Path Inclusions (one pattern per line)** *(UFT FileSystem workflow)* —
@@ -264,7 +368,7 @@ convert only the tests matching these globs. The box is hidden on the
 **Upgrade ALM Project** workflow, and an ALM run never carries an include list
 even if you filled the box in before switching workflows: ALM conversion is
 whole-project, so the console does not offer an include filter there.
-*Example:* include only `Flight_*` to convert one application's tests out of a
+*Example:* include only `Billing_*` to convert one application's tests out of a
 shared folder.
 
 **Custom UFT Methods (one per line)** — extra method names the converter
@@ -297,7 +401,9 @@ blockers are recorded, so a rule can never clear a blocker.
 **Convert Mode** — `new` writes converted output under the Output Root,
 leaving sources untouched (default; always start here). `in-place` converts
 inside the source tree — only for version-controlled sources where rollback
-is `git revert`.
+is `git revert`. The analysis on Step 5 assesses the conversion in the mode
+chosen here, so it counts the test cases that conversion counts; changing
+Convert Mode after an analysis makes it **STALE**.
 
 **Overwrite Policy** — what happens when output already exists: `fail`
 (stop rather than touch existing output), `backup` (set the existing output
@@ -370,7 +476,12 @@ What that policy means in practice:
   TD_80 before every run and after any run that wrote to ALM, so UFT reads
   what the server actually holds; there is no checkbox for it. The purge
   covers only the machine Phoenix runs on and the account it runs as — every
-  other execution host needs `%LOCALAPPDATA%\Temp\TD_80` cleared by hand.
+  other execution host needs `%LOCALAPPDATA%\Temp\TD_80` cleared by hand. If
+  a purge cannot delete every file (another process, such as a leftover UFT
+  Remote Agent, still holds one), the asset's notes say so, and what to close
+  before you run the converted tests in Test Lab; the Executive Summary's Next
+  Steps says it too when the cache was still not cleared at the end of the
+  run.
 - **A lock never fails an asset — locked assets are overwritten.** Per
   asset, Phoenix allows a 10-second grace period for the lock to clear,
   attempts to release it, and then converts and overwrites either way: an
@@ -454,6 +565,11 @@ apply — read the status line under the controls and the **CLI Output** box
 instead. The sidebar's three cards say the same things in words: **Workflow**
 (which migration flow you are on), **Approval State** (the verdict as a
 sentence, "Analysis needs attention…" for a run that failed) and **Context**.
+A card is shown only where it fits whole, so a short window shows fewer of
+them; make the window taller to see the rest. When the analysis counted more
+test cases than your edition converts, the verdict word stays GO or NO-GO,
+the card's line reads *Scoping required:* and the count, and Approval State
+says the same (see *Over the free-edition limit* below).
 
 **Analysis Run ID** — folder name for this analysis under `out/` in the
 directory Phoenix was launched from (the run folder is always there; the
@@ -476,7 +592,12 @@ Three things follow from this one field:
   later conversion in the same folder carries forward — does not reconvert —
   every test an earlier conversion there uploaded and verified that is still
   Python on the server. To reconvert those tests, for example after relinking
-  a library, enter a new Analysis Run ID, run the analysis, then convert.
+  a library, enter a new Analysis Run ID, run the analysis, then convert. If a
+  pasted copy was converted while its original was parked or converted
+  differently, first copy
+  `alm_aom_work\alm_rollback\pasted_copy_owner_maps.json` from the old run
+  folder to the same place in the new one
+  ([limitations.md](limitations.md) § *ALM environment boundaries*).
   Ticking *Overwrite previous analysis outputs* does not clear the journal.
 - **A custom ID is not remembered.** Reopen the console, or click a Step 2
   choice again (even the one already selected), and the field returns to the
@@ -488,9 +609,12 @@ Three things follow from this one field:
 **Overwrite previous analysis outputs in this run folder** — checked (the
 default every time the console starts), the run first deletes these files from
 the run folder: `scan_report.html`, `.md` and `.json`, `dependency_graph.json`,
-`file_manifest.txt`, `analysis_cli_output.log`, `conversion_summary.json`,
+`file_manifest.txt`, `analysis_cli_output.log`, `scoping_summary.html` and
+`scoping_summary.json`, `conversion_summary.json`,
 `observability_metrics.json` and `migration_log.txt`. Unchecked, they are left
-in place.
+in place. Either way the `analysis_reports` folder is left alone: it is the copy
+of an earlier analysis's reports that a conversion kept, and the next
+conversion replaces it with the analysis you are about to run.
 
 Because a conversion writes into this same folder, those last three are a
 conversion's own record once one has run there — including `migration_log.txt`,
@@ -498,7 +622,10 @@ the run log that names every overwritten lock. Phoenix now keeps them: when the
 last run in the folder was a conversion, only the analysis report set is
 cleared, and the status line says so. To keep the whole conversion record
 intact, copy the run folder somewhere safe or use a new Analysis Run ID before
-re-analyzing.
+re-analyzing. If a pasted copy was converted while its original was parked or
+converted differently, first copy
+`alm_aom_work\alm_rollback\pasted_copy_owner_maps.json` from the old run
+folder to the same place in the new one.
 
 This box has nothing to do with resuming. Resuming is offered separately: if an
 interrupted run for the same Analysis Run ID with the same inputs is found (a
@@ -507,8 +634,17 @@ checkpoint still marked *running* whose command and arguments match), a
 checkpoint or start fresh. That dialog appears whether or not this box is
 ticked, and choosing Resume makes the box moot — nothing is deleted. On the UFT
 FileSystem workflow a resumed run then skips the files already scanned; an ALM
-analysis always re-analyzes every asset, resumed or not. The box also does not
-apply to **Re-analyze Failed Assets**, which always builds on the previous run.
+analysis always re-analyzes every asset, resumed or not. For a *conversion*
+(Step 6) the dialog says No runs without the checkpoint, and that an
+unfinished ALM conversion wave is continued either way: for an ALM conversion
+the answer does not change what is converted. The box also does not apply to
+**Re-analyze Failed Assets**, which always builds on the previous run.
+
+**Run Folder In Use.** If another Phoenix process — a conversion, an analysis
+or a restore, from a second console or a command prompt — is working in the
+run folder, **Run Analysis** and **Convert Project** stop with *Run Folder In
+Use*, which names that process. Nothing in the run folder is touched. Wait for
+it to finish, or stop it, then try again.
 
 **Analysis Depth (ALM only)** — `Standard` screens every test in parallel
 without building it in UFT: a fast go/no-go filter. `Deep` opens and rebuilds
@@ -520,24 +656,51 @@ lines, lines needing parentheses added for Python calls, VBScript intrinsic
 replacements, descriptive-programming lines split static vs dynamic), per
 asset and overall. Use it as the per-construct evidence behind a go
 decision. The filesystem path's analysis has no depth choice and always
-includes the breakdown.
+includes the breakdown. Over the free edition's limit, with no license that
+covers the project, a Deep analysis still builds and measures every test —
+the Technical Conversion Breakdown included — but deletes each test's
+converted build once it is checked and measured, so *Compare Converted
+Output…* has no build to open (see *Over the free-edition limit* below).
 
 **Out-of-scope test IDs** *(ALM)* — the parking field: ALM test IDs listed
 here (comma-, space-, or newline-separated; text after `#` is ignored) leave
 the scope entirely for this wave — not analyzed, not converted, not counted
 as failures, left untouched in ALM. Fill it from the report's **Park the
-Failed Assets** list (see *Parking failed assets* below).
+Failed Assets** list (see *Parking failed assets* below). Park a test
+together with every test it calls and every test that calls it: a parked
+test stays VBScript, and **Convert Project** refuses to turn a test it calls
+into Python. Parked tests still count toward the free edition's limit of 100
+test cases.
 
 **Out-of-scope tests** *(filesystem)* — the same parking idea for on-disk
 tests: one entry per line (or comma-separated) — a test folder name, a
 path, or a glob (e.g. `*Debug*`). Listed tests are skipped this wave and
-their files left untouched on disk.
+their files left untouched on disk. They still count toward the free
+edition's limit.
 
 **Run Analysis** — executes the scan: discovers tests, inventories every
 blocker/warning per file, builds the dependency graph, and produces the
 readiness reports. **Always analyze before converting** — the conversion
 step refuses to run without a current analysis (*Analysis Required*), and
 refuses again if an input changed since.
+
+When *Out-of-scope test IDs* lists tests, the analysis first reads which tests
+each of them calls, before it analyzes anything else. A parked test stays
+VBScript, and **Convert Project** must not turn a test it calls into Python;
+this read is how the conversion checks that. It is read-only, like the rest of
+the analysis, and the CLI Output shows it as *reading which tests N parked
+test(s) call (read-only)*, then how many it read. Measured on a live server
+(316 parked tests, 2026-10-26), it took about 0.4 seconds per parked test
+with 10 workers (*Threads*), just over two minutes in all, and about 2.5
+seconds per test for each reading process, its ALM login included. Each
+reading process reads up to 25 parked tests, and up to *Threads* of them run
+at once: up to 25 parked tests take about 2.5 seconds each whatever the
+*Threads* (one process reads them all), and more take about one round of
+roughly a minute per *Threads* reading processes, so 0.4 seconds per test
+holds only for a few hundred parked tests. With nothing parked it takes no
+time at all. If some
+cannot be read, the CLI Output names them, and the report lists them as
+needing manual intervention (see *Parking failed assets* below).
 
 What happens next depends on the verdict and the workflow:
 
@@ -551,37 +714,120 @@ What happens next depends on the verdict and the workflow:
   missing a linked function library, has an unresolvable cross-test callee, or
   produces Python that cannot be parsed — at any strictness — and, under
   `strict`, if its converted body carries a converter blocker. Refused tests
-  are named in the conversion report.
+  are named in the conversion report. The one check a filesystem conversion
+  makes before it starts is the free edition's test-case limit (next).
+- **Either workflow, over the free-edition limit.** When the analysis counts
+  more test cases than your edition converts, it still finishes and the
+  go/no-go verdict stands; *Scoping required* appears beside it, **Next**
+  stops with *Scoping Required*, and **Run Conversion** / **Convert Project**
+  refuse first, before every other check, with *Conversion Blocked — Scoping
+  Required*. See *Over the free-edition limit* below.
 - **Either workflow.** An empty scope stops the conversion with *Conversion
   Blocked — Nothing In Scope*.
 
 After a run the console reports *Conversion Complete*, *Conversion Complete -
 Approval On Hold* (the run finished, but the Executive Summary is not ready
-for sign-off) or *Conversion Failed*, which shows the failure detail.
+for sign-off) or *Conversion Failed*, which shows the failure detail and the
+process's exit code. On an ALM conversion that recovered from native crashes
+of the conversion process, both *Conversion Complete* dialogs add how many
+crashes were recovered, and how many of them the crash-recovery test switch
+caused on purpose. When the run gives instructions of its own, *Conversion
+Failed* shows them first and in full: a stopped conversion wave's message,
+with its numbered restore commands, followed by the path of
+`alm_wave_stop.json`; or, when the crash supervisor ends the conversion itself
+— after a crash it could not recover from, when the conversion process ended
+without a result, or when it refuses to start one — the supervisor's
+explanation and next step. When the crash budget ran out and the wave was
+rolled back, the dialog lists the outcome by status instead, with the
+`process-crashed` asset among them.
+
+The run folder is reused by every run with the same Run ID, so it can hold an
+earlier run's reports. The console only shows reports the current run wrote:
+if the conversion process ends without writing any — a crash nothing recovered
+from, for instance — *Conversion Failed* says so (and, when the exit code is a
+Windows exception, where Windows recorded the crash: Event Viewer, events 1000
+and 1001), and the Run Outputs rows for the missing reports stay empty rather
+than pointing at an earlier run's.
+
+*Conversion Failed* ends with a question: *Collect diagnostics for Merito
+support now? Phoenix saves a zip on this PC and opens its folder. Nothing is
+sent.* **Yes** runs **Collect Diagnostics…** (see *The navigation row* above)
+on the run that just failed, its question about crash dumps and test scripts
+included; **No** only closes the dialog, and the button still works later.
+One collect runs at a time: when you pressed **Collect Diagnostics…** during
+the conversion and that collect is still running, **Yes** waits for it. That
+collect's *Diagnostics Saved* (or *Diagnostics Not Collected*) then ends:
+*Next, Phoenix collects the conversion that failed meanwhile: send the zip it
+saves then, which includes the failure.* The failed run is collected straight
+after, and the folder opens once its zip is saved.
+
+A conversion you stopped with **Cancel** is not asked about: its *Conversion
+Failed* ends with the line *To send details to Merito support, use Collect
+Diagnostics (bottom left). Nothing is sent automatically.* instead. So does the
+status line of a failed analysis, and of an analysis or conversion that could
+not start, which have no dialog.
+
+A conversion the command line refused over the free edition's limit is not a
+failure either. Its dialog is *Conversion Blocked — Scoping Required*: the
+command line's own message in full, then how test cases are counted and where
+to scope a license. It asks nothing, because nothing went wrong that support
+could fix, and the status line reads *Conversion refused: scoping required*
+with the count, *Nothing was converted.* and the run folder.
 
 **Re-analyze Failed Assets** — after fixing source scripts, re-scans only
 the assets that failed, under the same Analysis Run ID. Much faster than a
-full re-scan of a large estate. Works on both migration paths and, for ALM,
+full re-scan of a large test set. Works on both migration paths and, for ALM,
 at both analysis depths. The refreshed report still covers the whole scope:
 the re-analyzed assets get their new result, and every asset that already
 passed keeps the result from the previous analysis of that Run ID (on the ALM
 path, the report states how many of each). "Overwrite previous analysis
 outputs" does not apply to this action — a failed-only refresh builds on the
-previous run.
+previous run. On the ALM path a test you removed from *Out-of-scope test IDs*
+since the previous analysis is analyzed by the refresh as well, and the
+report's refresh note counts it apart from the failed ones. The hint under
+the button names those tests. With nothing failed, **Re-analyze Failed
+Assets** is enabled for them alone. If the previous analysis measured no
+assets, the button stays disabled and its hint says to run a full analysis
+instead.
 
 If you park every remaining failed asset instead of fixing them (see *Parking
-failed assets* below), this button becomes **Refresh Report (N parked)** the
-next time Step 5 refreshes — when you leave and return to the step, for
-example. The label does not change while you are pasting, but the button
+failed assets* below), this button becomes **Refresh Report (N parked)**
+about 0.3 seconds after you stop typing or pasting in *Out-of-scope test IDs*
+(the button and its hint follow the field as you edit it), and the button
 always acts on the IDs currently in the field. There is nothing left to
 re-measure, so the run just rewrites the report over the assets that remain in
-scope; that needs no ALM work and is near-instant. Park only some of them and
-the button stays **Re-analyze Failed Assets (M)** and re-measures the rest.
+scope; that needs no ALM work and is near-instant — unless you also removed an
+ID from the field since the previous analysis, whose test the refresh then
+analyzes. Park only some of them and the button stays **Re-analyze Failed
+Assets (M)** and re-measures the rest; it also reads which tests each
+parked test calls, where the previous analysis did not already prove it.
+Because **Refresh Report** reads nothing from ALM, it cannot read that either:
+when you park a failed asset whose analysis stopped before it read the test's
+calls (status `error`, `not-found`, `vc-blocked`, `process-crashed` or
+`shared-assets`), the
+refreshed report lists it under *Parked Tests That Need Manual
+Intervention*, and **Convert Project** is refused until **Run Analysis** has
+read it. And when a test you park calls a test that passed, the refreshed
+report lists that test under *Tests Step 6 Refuses Because Parked Tests Call
+Them*: park the whole call chain, or none of it.
 
 **Cancel** — stops the running analysis (the whole process tree). On the UFT
 FileSystem workflow, re-running with the same Analysis Run ID offers to resume
 and skips the files already scanned. An ALM analysis cannot pick up where it
 stopped: re-running it analyzes every asset again, even if you choose Resume.
+
+**Open Scoping Summary** — on a line of its own under **Run Analysis**,
+**Re-analyze Failed Assets** and **Cancel**. It opens the last analysis's
+scoping summary, `scoping_summary.html` in the run folder, in your browser,
+and is available once an analysis wrote one; every analysis does, on both
+workflows. The summary gives the test cases counted, the limit and the
+edition, the tests by type and by scope, how many passed the analysis, the
+blockers by category and the cross-test chains — counts and summary
+figures, with no names, paths, identifiers or test code. Send it to Merito if
+you want a migration over your edition's limit scoped; sending it is your
+choice
+([licensing.md](licensing.md) § *The scoping summary and the consultation
+request form*).
 
 **Analysis Reports** — links to the run folder's artifacts: Scan
 HTML/Markdown/JSON, Dependency Graph JSON, File Manifest and the raw CLI
@@ -589,8 +835,17 @@ Output Log, plus — on the Upgrade ALM Project workflow only — Conversion
 Summary, Migration Log and Observability Metrics. Those last three stay blank
 on a UFT FileSystem analysis, which does not write them. They are cleared when
 a run starts and filled in when it finishes (and whenever you return to Step
-5); they do not light up file by file. Start with **Scan HTML** — it carries
-the go/no-go verdict and per-file drill-down.
+5); they do not light up file by file. After an ALM conversion has run in the
+folder (one that passes the pre-flight gate, or finds no test to convert,
+rewrites those files with its own results), each link opens the copy of
+the analysis's file the conversion kept in the run folder's
+`analysis_reports` folder, and the status line names that folder. Only a copy
+of the analysis the folder is judged on is used: after a
+re-analysis, the links open the new analysis's files until a conversion keeps
+a copy of it. Start with **Scan HTML** — it carries
+the go/no-go verdict and per-file drill-down, names the edition at the top,
+and, over the free edition's limit, carries the *Scoping required* notice with
+links to the scoping summary and to Merito's consultation request form.
 
 **CLI Output** — the engine output for this analysis, shown when the analysis
 finishes and kept on screen for troubleshooting.
@@ -622,17 +877,23 @@ this run already uploaded are rolled back to VBScript. Once the permission is
 in place, run **Convert Project** again with the same Analysis Run ID (after
 reopening the console, re-run Analysis first). There is no failed-only
 conversion, so every in-scope asset is converted again — with one exception:
-an asset an earlier conversion in that folder uploaded and verified that is
-still Python on the server (one whose rollback failed, say) is skipped and
-counted on the Executive Summary's **Carried Forward** card. A carried-forward
+an asset an earlier, finished conversion in that folder uploaded and verified
+that is still Python on the server is skipped and counted on the Executive
+Summary's **Carried Forward** card. If the rollback failed for any asset, the
+conversion stops instead and names each such asset with its `restore --wave`
+command; restore them first. A carried-forward
 test still serves as a callee: its journal record carries the converted action
 layout its callers need. Only a journal written by an earlier version of
 Phoenix, before that layout was recorded, differs: a test that calls a test
 carried forward from it is refused because the called test has no conversion
 record in this run, which stops the run again. If that happens, enter a new
 Analysis Run ID, run Analysis there, then convert — a fresh run folder carries
-nothing forward, so caller and callee convert together. Use *Re-analyze Failed
-Assets* to refresh the report.
+nothing forward, so caller and callee convert together. If a pasted copy was
+converted while its original was parked or converted differently, first copy
+`alm_aom_work\alm_rollback\pasted_copy_owner_maps.json` from the old run
+folder to the same place in the new one
+([limitations.md](limitations.md) § *ALM environment boundaries*). Use
+*Re-analyze Failed Assets* to refresh the report.
 
 ### Parking failed assets
 
@@ -643,8 +904,12 @@ park them rather than converting them:
    Assets drill-down page). It lists every failed asset that is *safe to
    park*, one ALM test ID per line with the asset name and its failure
    category as a `#` comment. Assets the failed-assets page marks *do not
-   park* are withheld from the block, so it — and the **Copy all N failed
-   IDs** count on it — can be shorter than the failed-asset count.
+   park* are withheld from the block, and so is a failed asset whose calls
+   tie it to tests the block does not park (it calls them, or they call
+   it): its row reads *park only together with* and the IDs of every other
+   test in its call chain. So the block,
+   and the **Copy all N failed IDs** count on it, can be shorter than the
+   failed-asset count.
 2. Press **Copy all N failed IDs**.
 3. Paste into **Out-of-scope test IDs**, right here on Step 5 (Risk
    Analysis). The field keeps the IDs and ignores the comments, so you can
@@ -674,6 +939,31 @@ third it does not refuse — it simply does not clear the gate:
   assets (*Hold conversion approval — cross-test dependency graph*). A
   shareable-action chain converts as one unit — park the whole chain or none of
   it, and restore the missing callee if you have already parked it.
+  The other direction — parking a failed test that *calls* surviving tests —
+  would leave the parked caller, still VBScript, calling tests that the
+  conversion turns into Python. If you park one, the refreshed report can
+  still come back **go**, because a parked test is not analyzed, but
+  **Convert Project** is refused before it writes anything: the analysis
+  reads which tests each parked test calls, and the pre-flight gate refuses
+  each surviving test a parked test calls (`parked-caller`) and the tests
+  that call those. The report says so: it lists each of those tests under
+  *Tests Step 6 Refuses Because Parked Tests Call Them* (below). Park the
+  whole chain: the caller, every test it calls, directly or not, and every
+  other test that calls them.
+  So the **Park the Failed Assets** block leaves out, in both directions, a
+  failed asset whose shareable-action calls tie it to in-scope tests the
+  block does not park (tests that passed, or that are *do not park*),
+  directly or through other tests. It counts a call the way the pre-flight
+  gate will once the asset is parked: a call that names no test by its full path
+  (the test it called may have moved or been renamed) and whose name matches
+  more than one test ties the asset to every test of that name, since the
+  gate refuses each of them rather than guess which one the call means. On
+  the failed-assets page its row shows
+  *park only together with* and the IDs of every other test in its call
+  chain where the **Exclude**
+  checkbox would be, and a note under the block names each such asset with
+  its partners. Fix the asset, or park it together with every test named
+  beside it, typing their IDs into *Out-of-scope test IDs* yourself.
 - **A failed asset the report marks *do not park*.** Assets whose status is
   `shared-assets`, `rolled-back` or `rollback-failed` are withheld from the
   **Park the Failed Assets** block, and the failed-assets page shows *do not
@@ -686,13 +976,72 @@ third it does not refuse — it simply does not clear the gate:
   running it from Test Lab): fix the asset that aborted the run — named in the
   run summary — and re-run the whole conversion. `rollback-failed` is still
   sitting converted in ALM and is the one asset a human must open.
-  `shared-assets` means the test's actions are owned by another test, so it has
-  nothing of its own to convert: re-create it in ALM so it owns its actions.
-  Converting the owning test does not clear it — the ownership check runs at
-  download time. Never park a `shared-assets` caller on its own — its owner
-  converts in any run that proceeds, leaving a VBScript test loading Python
-  actions, a chain that resolves but does not execute. If every failure is a
-  *do not park* status, the block is not rendered at all.
+  `shared-assets` means the test owns no asset records of its own, or its
+  records do not match its manifest; the error names the other test.
+  Converting that test does not clear a test that owns no records, or one
+  whose records differ from its manifest in a way other than a conversion's
+  rename: re-create such a test in ALM so it owns its records, which gives it
+  a new test id and leaves its Test Lab history with the old one, or retire it
+  ([remediation.md](remediation.md), blocker 3). A copy whose records its own
+  conversion renamed is recognised again once its original has been converted
+  with the same actions — unless two action records of either test share a
+  description, which the reason names — or once its first-sight record is
+  copied into the run folder
+  ([advanced_troubleshooting.md](advanced_troubleshooting.md) §1a).
+  Never park a `shared-assets` test on its own — the other test converts in
+  any run that proceeds, leaving the two in different languages. If every
+  failure is a *do not park* status, the block is not rendered at all.
+
+A pasted copy that ALM gave its own asset records (Phoenix checks this) is not
+a failure at all: it analyzes `ok`, converts from its own records, and the scan
+report counts it in a *Pasted copies* row. Nothing stops you typing its ID into
+**Out-of-scope test IDs**, but until a live run has measured how UFT runs a
+converted copy, do not park a pasted copy while its original converts, or the
+original while the copy converts.
+
+**Parked tests that need manual intervention.** When Phoenix could not read
+which tests a parked test calls, **Scan HTML** shows *Conversion blocked: N
+parked test(s) need manual intervention* in a section headed *Parked Tests
+That Need Manual Intervention*, just before the **Recommended Remediation
+Queue**; the Failed Assets drill-down page opens with the same section. Each
+row names the test and its ALM path, says why its calls were not read (with
+an error id, when there is one, for Merito support) and what to do. A report
+written for a run folder whose analysis an earlier Phoenix build made lists
+here every test that analysis parked, by ID alone (it kept no name or path
+for a parked test), because that build did not read which tests a parked
+test calls. Until each one is resolved, **Convert Project** is refused, with
+nothing written:
+whether the parked test calls a test the conversion would turn into Python is
+unknown, and the console has no override. What to do depends on the reason:
+
+- *Refresh Report does not read ALM*, or the analysis was made by an earlier
+  Phoenix build: press **Run Analysis** with the test still parked.
+- The analysis could not read the test from ALM: press **Run Analysis**
+  again. If it fails the same way, ALM cannot give this test's definition:
+  delete the test in ALM if it is no longer used, or remove it from
+  *Out-of-scope test IDs* and fix it there.
+- ALM did not find the test: if it was deleted, **Run Analysis** no longer
+  lists it; if not, run it again to read the test again.
+
+A test in a `.TrashCan` or `Recycle Bin` folder is never listed, since it does
+not run. When every parked test was read, the section is not there.
+
+**Tests Step 6 refuses because parked tests call them.** When a parked test
+calls a test that passed the analysis, **Scan HTML** shows *Conversion
+blocked: Step 6 refuses N in-scope test(s) that parked tests call* in a
+section headed *Tests Step 6 Refuses Because Parked Tests Call Them*, after
+the parked tests that need manual intervention; the Failed Assets drill-down
+page shows the same section. The verdict can still read **go**, because these
+tests passed the analysis, but **Convert Project** refuses each of them
+before it writes anything. Each row names the test and its ALM path, says
+which parked test calls it, or may call it through a call that matches more
+than one test (or, for a test that calls one of them, which of them it
+calls), and gives the pre-flight gate's refusal word for word, as
+*Conversion Failed* would show it. A test that failed the analysis for a
+reason of its own is not listed again here. To clear the section, fix the
+parked test and remove it from *Out-of-scope test IDs*, or park the tests it
+lists with it (the whole call chain), then press **Run Analysis**. When no
+parked test calls a test that would convert, the section is not there.
 
 This parking flow is **ALM-only**. The filesystem workflow's **Out-of-scope
 tests** field takes tests out of the *conversion* wave — those tests are not
@@ -702,6 +1051,53 @@ and the go/no-go verdict does not change. On the filesystem path, judge scope
 from the conversion narrative (see
 [usage.md](usage.md#taking-tests-out-of-scope-and-where-the-drops-are-reported)),
 which names every test the wave dropped and the pattern that dropped it.
+
+### Over the free-edition limit
+
+The free edition converts up to 100 test cases per conversion: an ALM
+project, or the tests under the source folders of one filesystem run.
+[licensing.md](licensing.md) explains how they are counted. The analysis runs
+at any size. When it counts more test cases than your edition converts, and
+no installed license covers them:
+
+- **The verdict does not change.** GO or NO-GO says whether the tests are fit
+  to convert, not whether the free edition may convert them, so a clean
+  project still reads **GO**. The card's line reads *Scoping required:* and
+  the count — *Scoping required: 150 test cases, over the free edition limit
+  of 100.* — and **Approval State** says the same, then *Use the results for
+  assessment only.*
+- **The status line and the reports carry the full notice.** The status line
+  under the controls ends with it, and the analysis report shows it under
+  *Scoping required*: the count, the limit, that the results are for
+  assessment only until a license covers the conversion, Merito's
+  consultation request form, and the scoping summary.
+- **Parking does not help.** The count is taken before *Out-of-scope test
+  IDs*, *Out-of-scope tests*, *Path Exclusions* and *Path Inclusions*, so none
+  of them lowers it.
+- **A Deep analysis keeps its measurements, not its builds.** Each test's
+  converted build is deleted once it is checked and measured.
+- **The step header card offers the consultation request form.** On Steps
+  2–6 it names the count, and its button **Scope this conversion with
+  Merito** opens Merito's consultation request form in your browser.
+- **Next stops with *Scoping Required*.** The dialog gives the notice, then
+  any installed license Phoenix did not use and why, under *UFT Phoenix did
+  not use the installed license:*, then *How test cases are counted:* and
+  the counting rule. Step 6 cannot be opened, unless the run folder holds
+  a conversion that is still under way — an open ALM conversion wave or an
+  interrupted run — which Step 6 then continues.
+
+To go on, press **Open Scoping Summary** and **Scope this conversion with
+Merito**, and install the license Merito sends you ([licensing.md](licensing.md)
+§ *Installing a license*). You do not have to run the analysis again: the
+console reads the installed licenses again at **Next**, and the version line
+names the license. Only the reports this analysis wrote keep its *Scoping
+required* notice, until the next analysis.
+
+If you have a license and still see *Scoping Required*, read the dialog's
+*UFT Phoenix did not use the installed license:* lines, or run
+`uft-migrate license`: a license that expired, that names other ALM projects
+than this one, or that is installed for another Windows user only does not
+apply here.
 
 ---
 
@@ -721,22 +1117,93 @@ upload → verify (with version-control checkout/check-in handled automatically
 per asset). On the Upgrade ALM Project workflow the progress bar shows
 per-asset progress read live from the engine; on UFT FileSystem it only shows
 that the run is active, and the outcome appears when the run finishes.
+When the run ends, the line under the progress bar says how long it took,
+for example *Run complete: 348 of 348 assets. Elapsed time: 5h 33m 31s.*:
+the time since the console started the run (after any question it asked
+you first), any automatic relaunch or planned restart of the conversion
+process included. A resumed conversion is timed from the launch that
+resumed it; the Executive Summary times the whole
+conversion. **Run Analysis** ends its progress line the same way, also when
+the analysis did not complete.
 
-**Cancel** — asks *Stop the running conversion?* first; on Yes it force-kills
-the Phoenix command-line process and its worker processes immediately
-(`taskkill /T /F`). UFT (`UFT.exe`, `QtpAutomationAgent.exe`) runs outside
-that process tree and may keep running; close it, or end those processes,
-before using UFT on that machine — the next conversion or Deep analysis
-closes it automatically. Cancel does not wait for the asset in progress —
-that asset is interrupted mid-conversion. Nothing is rolled back, no checkout
-is abandoned, and the end-of-run cache purge does not happen. Assets
-converted before the cancel stay Python, so an ALM project is left part
-Python and part VBScript.
+Over the free edition's limit, with no installed license that covers the
+conversion, the button refuses first, before any other check, with
+*Conversion Blocked — Scoping Required*, and nothing starts. The button never
+refuses a conversion the run folder already holds — an open ALM conversion
+wave, or an interrupted run: it continues it or rolls it back, and the
+command line decides what that conversion may still do. The command line also
+counts the test cases again when a conversion starts, so the same conversion
+started anywhere else, from the **Review Command** text for example, is
+refused too: it ends with status `license-limit` and converts nothing. When
+the command line refuses a conversion the console let through — a license
+that expired meanwhile, say — the console shows the same dialog, with the
+command line's message in full. On UFT FileSystem, an interrupted run whose
+source folders have since gained test cases, beyond what your edition
+converts, is refused that way only after it has rescanned them, so Step 5's
+reports and scoping summary are new, and the run can no longer be resumed
+([usage.md](usage.md) § *The free-edition limit*).
 
-Treat a cancelled ALM run as an incident, not a pause: check the project's
-state, and restore the in-flight test from that run's pre-conversion snapshot
-before anyone runs it — see [alm_safety.md](alm_safety.md) for the `restore`
-command. Only then restart.
+**Refused by the pre-flight gate.** Before it writes anything, an ALM
+conversion checks the whole project against the analysis. When any test
+cannot be converted, *Conversion Failed* says *Pre-flight gate FAILED: N of M
+asset(s) in this run cannot be converted. NO ALM WRITES WERE PERFORMED*, then
+one line per reason with an example, and names `alm_preflight.json`, which
+lists every test with its reason ([remediation.md](remediation.md) §
+*Pre-flight gate refusals*). Two reasons come from parking. `parked-caller`:
+a parked test calls this test and stays VBScript, so this test must stay
+VBScript too — park it with its whole call chain, or fix and un-park the
+caller. A parked test may also call it through a call that names no test by
+its full path and whose name matches more than one test: the gate refuses
+each of those tests rather than guess, and the reason starts *May be called
+by a parked test … through a call that matches more than one test* (or,
+when a known parked caller also calls it, continues with *It may also be
+called through a call that matches more than one test*). Fix that
+call in ALM so it names its test by full path and press **Run Analysis**
+again, or park the chain whole. The analysis report lists it, with the
+tests that call it (`callee-disqualified`), under *Tests Step 6 Refuses
+Because Parked Tests Call Them* (Step 5, *Parking failed assets*). `parked-references-unread`:
+Phoenix could not read which tests a parked test calls; the analysis report
+lists it under *Parked Tests That
+Need Manual Intervention* (Step 5, *Parking failed assets*). Re-running the
+analysis with the same tests parked does not clear `parked-caller` when the
+caller is in *Out-of-scope test IDs*: the analysis reads each parked test's
+calls again. A caller left out by *Path Exclusions* or *Path Inclusions* is
+never read, so park
+call chains whole there yourself.
+
+An ALM conversion runs under a crash supervisor. If Windows ends the conversion
+process (a native crash), the supervisor records the crash, cleans up and
+starts the conversion again. From then on the progress label and the status
+line under the controls show the supervisor's latest message — that the
+conversion process crashed and on which asset, what was cleaned up, and the
+relaunch, with the count of crashes the wave allows. They also show when an
+unfinished conversion wave that had written no test was closed because the
+selections changed, and when the conversion process could not be placed in
+the supervisor's kill-on-close job, so closing the window may leave it
+running. See
+[advanced_troubleshooting.md](advanced_troubleshooting.md) §9.
+
+**Cancel** — asks *Stop the running conversion?* first; on Yes it stops the
+Phoenix command-line process immediately, and then any of its worker
+processes still running. For an ALM conversion that process is the crash
+supervisor: it goes first, and it takes the conversion process and its
+children down with it, so nothing is relaunched. UFT (`UFT.exe`,
+`QtpAutomationAgent.exe`) runs outside that process tree and may keep running;
+close it, or end those processes, before using UFT on that machine — the next
+conversion or Deep analysis closes it automatically. Cancel does not wait for
+the asset in progress — that asset is interrupted mid-conversion. Nothing is
+rolled back, no checkout is abandoned, and the end-of-run cache purge does not
+happen. Assets converted before the cancel stay Python, so an ALM project is
+left part Python and part VBScript. The *Conversion Failed* dialog that follows
+does not ask to collect diagnostics, since you stopped the run; its last line
+names **Collect Diagnostics…** for when you want them.
+
+Treat a cancelled ALM run as an incident, not a pause: the test that was in
+flight may be half-written. Do not let anyone run it until you have restarted
+the conversion as below — before it converts anything, the restart compares
+that test with the copy the conversion wave froze before changing it, and
+restores it if they differ — or restored it yourself with `restore --wave`
+(see [alm_safety.md](alm_safety.md) for the command).
 
 Restarting afterwards differs by workflow:
 
@@ -751,17 +1218,29 @@ Restarting afterwards differs by workflow:
   where `fail` acts as `backup`. **Re-analyze Failed Assets** only refreshes
   the analysis report; it converts nothing.
 - **Upgrade ALM Project.** Run **Convert Project** again with the same
-  Analysis Run ID (after reopening the console, re-run Analysis first). Assets
-  an earlier run uploaded and verified that are still Python on the server are
-  skipped and shown as **Carried Forward**; the asset that was in flight, and
-  everything after it, is converted. A carried-forward test still serves as a
-  callee: its journal record carries the converted action layout its callers
-  need. The one exception is a journal written by an earlier version of
+  Analysis Run ID (after reopening the console, re-run Analysis first) and the
+  same selections, and answer *Resume Previous Run* either way: the conversion
+  continues the interrupted conversion wave. If the asset that was in flight
+  had started uploading, it is first compared with the wave's copy and
+  restored from it if they differ. Assets an earlier run uploaded and verified
+  that are still Python on the server are skipped and shown as **Carried
+  Forward**; the asset that was in flight, and everything after it, is
+  converted. Change a selection first, and a wave that has not written any
+  test — cancelled before its first upload, say — is closed and a new one
+  starts; a wave that has is refused, and *Conversion Failed* names what differs and
+  the command that closes the wave (see [troubleshooting.md](troubleshooting.md)
+  § *Native crashes and interrupted ALM conversions*). A carried-forward test
+  still serves as a callee: its journal record carries the converted action
+  layout its callers need. The one exception is a journal written by an earlier version of
   Phoenix, before that layout was recorded — a test that calls such a
   carried-forward test is refused because the called test has no conversion
   record in this run, and the run stops. If that happens, enter a **new**
   Analysis Run ID, run Analysis there, then convert — a fresh run folder
-  carries nothing forward, so caller and callee convert together.
+  carries nothing forward, so caller and callee convert together. If a pasted
+  copy was converted while its original was parked or converted differently,
+  first copy `alm_aom_work\alm_rollback\pasted_copy_owner_maps.json` from the
+  old run folder to the same place in the new one
+  ([limitations.md](limitations.md) § *ALM environment boundaries*).
 
 **Compare Converted Output…** — side-by-side diff viewer: original VBScript
 on the left, converted Python on the right, changes shaded. Pick the
@@ -770,7 +1249,10 @@ during review to show a QA owner exactly what happened to their test.
 
 **Run Outputs** — links to this run's reports, filled in when the run
 finishes. Both paths produce the **Executive Summary** (HTML / Markdown / JSON
-— verdict, next steps, drill-downs). Beyond that the set depends on the path:
+— verdict, next steps, drill-downs, and **Run Timing**: when the run started
+and finished and how long it took, in this computer's local time zone with its
+UTC offset; [usage.md](usage.md) says what the times cover). Beyond that the
+set depends on the path:
 
 - **Filesystem runs**: Convert HTML/JSON and Validation HTML/JSON.
 - **ALM runs**: Conversion Summary JSON (per-test results, including upload
@@ -784,16 +1266,61 @@ finishes. Both paths produce the **Executive Summary** (HTML / Markdown / JSON
   Summary and the console's **Conversion Failed** dialog each give only a count
   per reason code with one example.
 
-  The ALM Executive Summary also carries a **Carried Forward** card. It reads
-  0 unless this applies: assets an earlier conversion in the same run folder
-  had already uploaded and verified, and that are still Python on the server,
-  are skipped rather than converted again. When the count is not zero, a Next
-  Steps note explains it. These assets count as converted, not failed, and do
-  not change the verdict. They carry the same exception as the restart above:
-  if the journal record was written by an earlier version of Phoenix, a test
-  that calls a carried-forward test is refused because the called test has no
-  conversion record in this run, and the run stops. Enter a new Analysis Run
-  ID, run Analysis there, and convert there if it happens.
+  The ALM Executive Summary also carries a **Carried Forward** card. It reads 0
+  unless this applies: assets an earlier conversion in the same run folder had
+  already uploaded and verified are skipped rather than converted again. After
+  the conversion process restarted itself to free memory (a planned restart),
+  the assets this conversion converted are skipped without reading ALM again: no
+  test was in flight, and the conversion kept the run folder locked from one
+  attempt to the next, so no `restore` could run in between
+  ([advanced_troubleshooting.md](advanced_troubleshooting.md) §9). After a crash
+  relaunch, or when you run the conversion again (whichever answer you give to
+  *Resume Previous Run*), each of them is checked on the server once more and
+  skipped only if it is still Python there, and is trusted again after that.
+  Assets an earlier run converted are checked on the server every time. A
+  conversion that ends without converting anything itself — one that closes a
+  wave whose crash budget ran out, for example — rebuilds the outcomes from the
+  conversion journal alone, without reading ALM. When the count is not zero, a
+  Next Steps note explains it, and tells the cases apart: assets an earlier
+  *attempt of this same conversion* converted — before a crash relaunch, before
+  a planned restart, or before you resumed it — are this run's own work; assets
+  an earlier *run* converted are not. Assets carried forward after a planned
+  restart, and assets rebuilt from the journal alone, are counted in notes of
+  their own, which say that ALM was not read for them. These assets count as
+  converted, not failed, and do not change the verdict. The reports show what
+  their conversion recorded — findings, structure check, the shared libraries an
+  earlier attempt of the same conversion replaced, and duration. A journal
+  written by Phoenix 1.1.5 or earlier recorded none of that: the summary and the
+  scan report then say how many carried-forward assets the figures leave out.
+  They carry the same exception as resuming an interrupted conversion (*Upgrade
+  ALM Project*, above): if the journal record was written by an earlier version
+  of Phoenix, a test that calls a carried-forward test is refused because the
+  called test has no conversion record in this run, and the run stops. Enter a
+  new Analysis Run ID, run Analysis there, and convert there if it happens.
+
+  When the conversion process crashed natively during the run, a Next Steps
+  note says how many times and what became of the crashes — how many were
+  relaunched automatically, how many needed a manual re-run, and whether any
+  struck after a payload write began — and names the conversion wave and the
+  run folder's `crash_recovery\<wave>\` evidence folder. What crash recovery
+  did around each affected asset is listed under **Crash Recovery Notes** on
+  the assets page (`analysis_assets.html`) and in `scan_report.md`. Phoenix
+  deletes the evidence folder itself once two later conversion waves in the
+  same run folder that wrote to ALM have closed (a wave that wrote nothing,
+  such as a launch the pre-flight gate refused, does not count), so copy it
+  elsewhere if you must keep it. *Wrote nothing* means wrote no test — no
+  test upload, restore or rollback: a wave can still have written shared
+  libraries before its first test upload began, because library writes are
+  not journaled. A memory dump is never copied into the evidence folder,
+  because a dump may hold the ALM password — it stays in the Windows
+  crash-dump folder that the attempt's `crash.json` names, where Windows keeps
+  only its newest dumps. Crashes the crash-recovery test switch caused on
+  purpose are counted separately, with a reminder to unset it. When the crash
+  budget ran out, the note says why the wave was aborted and whether its
+  rollback finished. Like Carried Forward, it does not change the verdict.
+  The report's total time covers every attempt
+  of the conversion, the crashed one included, but not the time between
+  attempts, and says how many there were.
 
 ---
 
@@ -804,13 +1331,17 @@ finishes. Both paths produce the **Executive Summary** (HTML / Markdown / JSON
 2. Pilot first on a small representative set — **UFT FileSystem** against a
    copy of tests, or a dedicated pilot ALM project seeded with copies (ALM
    conversion is whole-project, so you cannot target a subset of the
-   production project).
+   production project). When the tests come from a project or folder of more
+   than 100 test cases, the pilot needs a license too
+   ([licensing.md](licensing.md)).
 3. Step 3: Connect, pick domain/project, and tick the backup confirmation
    (Next is blocked without it). Leave the other defaults.
 4. Step 5: **Run Analysis** — this is the read-only dry run (zero ALM
    writes). Read the Scan HTML, including the **Version Control & Locks**
    chase list on version-controlled projects; fix or map blockers; re-analyze
-   failed assets; park anything you are deferring.
+   failed assets; park anything you are deferring. If it counts more than 100
+   test cases and no license covers them, press **Open Scoping Summary**,
+   request scoping, and install the license before Step 6 (Convert Project).
 5. Step 6: **Convert Project** — ALM conversion always uploads in place,
    verified per test.
 6. Once the pilot is at parity, run **Upgrade ALM Project** against the full

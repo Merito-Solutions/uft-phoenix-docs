@@ -24,6 +24,9 @@ groups:
       - file: supported_versions.md
         title: Supported Versions
         description: Supported Windows, UFT One and ALM versions, and exactly what converts.
+      - file: licensing.md
+        title: Free Edition and Licensing
+        description: What the free edition converts, how test cases are counted, and how to install and check a license.
 
   - title: Using the Console
     pages:
@@ -47,7 +50,7 @@ groups:
         description: How to fix each blocker that keeps a test from converting.
       - file: troubleshooting.md
         title: Troubleshooting
-        description: Diagnosing environment, conversion and upload problems.
+        description: Diagnosing environment, conversion and upload problems, and collecting diagnostics for Merito support.
       - file: advanced_troubleshooting.md
         title: Advanced Troubleshooting
         description: Deep diagnostics for support engineers and migration leads.

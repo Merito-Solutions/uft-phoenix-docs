@@ -11,7 +11,8 @@ runtime, the ALM client, and output-folder write access — and can test a live
 ALM login with `--alm-url`/`--username` (password via the
 `UFT_MIGRATE_ALM_PASSWORD` environment variable). An `offline-package` row
 marked `[ -- ]` is normal on an installed copy: that check is for whoever builds
-the package, not for you.
+the package, not for you. Its `license` row names the edition in use: the free
+edition, or your installed license.
 
 ---
 
@@ -43,16 +44,85 @@ Python's installation folder).
 
 ### "QuickTest.Application COM ProgID is not registered"
 UFT One is not installed (or its COM registration is broken) on this machine.
-Install UFT One 26.1 or run a repair install. The converter's ALM pipeline
+Install UFT One 26.1 or 26.3, or run a repair install. The converter's ALM pipeline
 builds tests through UFT's Automation Object Model and cannot run without it.
 
 ### IronPython runtime incomplete
 `doctor` reports missing files such as `IronPython.Modules.dll` or the `Lib\`
-standard library next to `IronPython.dll` under the UFT installation. Converted
-Python tests will import-fail at run time until these are present. Copy the
+standard library next to `IronPython.dll` under the UFT installation. Expect
+this on a fresh install of either supported version: the UFT One 26.1 and
+26.3 installers both ship `IronPython.dll` without these files. Converted
+Python tests will import-fail at run time until they are present. Copy the
 missing files from the NuGet packages **IronPython 3.4.1**, **IronPython.StdLib
 3.4.1**, and **DynamicLanguageRuntime 1.3.4** into the folder that contains
-`IronPython.dll`, then re-run `doctor`.
+`IronPython.dll`, then re-run `doctor`. An upgrade from 26.1 to 26.3 leaves
+files you copied in place, so a machine repaired on 26.1 stays repaired.
+
+### `uft-migrate license install` refuses the license file
+Nothing was installed, and the edition did not change. The command printed
+`License not installed:` and the reason, and exited 2:
+
+- *… was changed after Merito issued it, or Merito did not issue it. UFT
+  Phoenix ignores it.* — the file's details no longer match Merito's
+  signature. Install the file exactly as Merito sent it; if something in it
+  must change, ask Merito for a new file.
+- *license … expired on* and the date — ask your Merito contact for a renewed
+  file.
+- *… needs a newer version of UFT Phoenix.* — Merito issued it for a later
+  release: upgrade Phoenix, then install it.
+- *… is not a UFT Phoenix license file.*, *… is not a valid license: …* or
+  *… is larger than 64 KB, so it is not a UFT Phoenix license.* — the file is
+  not the one Merito sent, or was damaged on the way. Ask for it again.
+- *installing for all users needs administrator rights.* — `--all-users`
+  writes to the install folder: run the command from a Command Prompt opened
+  with **Run as administrator**, or leave out `--all-users` to install the
+  license for yourself only.
+- *… does not exist.* — check the path; put it in quotes when it holds a
+  space.
+
+A license that installs but does not apply to a conversion — one that names
+other ALM projects, say — is not refused here; see *Conversion refused: over
+the free edition's limit* below.
+
+### Setup exited with code 10
+The product is installed, but the license file named with `/LICENSEFILE=` was
+not. Setup's log says why, in its `license:` lines — the same reasons as the
+entry above — and then *If a license was installed earlier, it still applies.
+If not, the free edition is active.* Running Setup again with the same file
+fails the same way. Fix the file, then install it for every user from a
+Command Prompt opened with **Run as administrator**:
+
+```
+uft-migrate license install "C:\Deploy\PHX-20261012-3F9A2C.license.json" --all-users
+```
+
+([install.md](install.md) § *Installing a license*). Exit code `2` instead
+means Setup stopped before installing anything: `/LICENSEFILE=` named no file,
+a file that is not there, or was written without its `=`.
+
+### `doctor`'s `license` row reads `[WARN]`
+The row never fails a check, and the free edition still converts up to 100
+test cases. It warns in three cases:
+
+- **No installed license file can be used (free edition).** The row names
+  the first one and why — expired, changed, for a newer Phoenix — and counts
+  the rest; `uft-migrate license` lists them all. An expired one reads *The
+  UFT Phoenix License File for* the licensee *expired on* the date, *The free
+  edition now applies, covering conversions of up to 100 test cases.* Its
+  `fix:` line asks you
+  for a valid license file from Merito, installed with
+  `uft-migrate license install`. Remove a file you no longer need with
+  `uft-migrate license remove <license id>`. With a license in use, a file
+  that cannot be used does not make the row warn: the row names it after
+  *Other license files:*.
+- **The license in use expires within 30 days.** Its fix line says when, and
+  what applies after that date: the free edition, or another installed
+  license that outlives it. Ask Merito to renew it before then.
+- **Phoenix's own license key is damaged.** The row says *Built-in license
+  key … is damaged.*, or *This copy of UFT Phoenix has no usable license key,
+  so it accepts no license.*, and its fix line says *Reinstall UFT Phoenix.*
+  Until you do, a license file signed with that key is refused as though
+  Merito had not issued it, so asking Merito for another file would not help.
 
 ---
 
@@ -81,11 +151,15 @@ the same run folder.
 
 - **Filesystem runs** resume with `--resume` under the same run id, but only
   while the interrupted run is still marked as running.
-- **ALM conversions** do not use `--resume`, and it is refused with exit code 2
-  after a run that ended in failure. Re-run with the same `--run-id` and no
-  `--resume`: the conversion carries forward every asset an earlier run of that
-  run id uploaded and verified, provided the server still holds their Python.
-  A carried-forward test still serves as a callee, so a test that calls it is
+- **ALM conversions** do not need `--resume`. Re-run with the same `--run-id`
+  and the same options. If the interrupted conversion's wave is still open,
+  the re-run continues it, with or without the flag, and first checks any test
+  it may have left half-written (see *Native crashes and interrupted ALM
+  conversions* below). After a run that finished — completed, or aborted and
+  rolled back — `--resume` is refused with exit code 2, so leave it off. Either way the conversion carries
+  forward every asset an earlier run of that run id uploaded and verified,
+  provided the server still holds its complete Python payload. A
+  carried-forward test still serves as a callee, so a test that calls it is
   converted as usual. The exception is a run folder whose journal an earlier
   version of Phoenix wrote: see *"that callee has no conversion record in this
   run"* below.
@@ -104,6 +178,81 @@ run aborts — reconnecting first, so the rollback of this run's uploads can
 still reach the server. Once ALM is reachable again, re-run the conversion with
 the same run id and without `--resume`.
 
+### "ALM discovery failed: …" The analysis or conversion stopped at its first
+step, discovery, which logs in to ALM in a process of its own and lists every
+test in the project's Test Plan. It could not finish, so the run stopped instead
+of going on with a partial scope. This run analyzed, converted and wrote
+nothing. When the run continued an unfinished conversion wave — a relaunch after
+a crash or after a planned restart to free memory, or a resume — it stops the
+wave instead, with `wave-stopped` and the reason `discovery-failed` (see *The
+conversion stopped and stays open* below): the tests the wave converted earlier
+stay converted, and one may be half-written, so run the same command again as
+soon as you can; it retries discovery.
+
+**Login.** When the message goes on with *ALM login failed during
+Login(username, password).*, ALM refused the user name or password. Phoenix
+does not try again, so a wrong password costs one failed login, not two, where
+your ALM counts them towards locking the account. Check the user name and
+password, then run again.
+
+**Everything else** is retried once before you see it. The message says where
+discovery stopped:
+
+- *InitConnectionEx failed for …* or *ALM Connect(domain=…, project=…)
+  failed.* — discovery could not reach the ALM server, or open the domain and
+  project after logging in. Check the ALM URL, the domain and the project, and
+  that the server is up.
+- *Test Plan folder '<path>': <step> failed: <error>* — listing that folder's
+  subfolders or tests, or reading one of them, failed with the error the ALM
+  client returned. The message can also name the project's test list, which
+  could not be read.
+- *the Test Plan walk under 'Subject' missed N test(s) that the project's test
+  list places there: <id> in '<folder>', …* — the walk came back without
+  them, and nothing reported an error.
+- *the Test Plan walk and the project's test list … differ: the walk found N
+  test(s) the list does not have* — the two listings disagree. A test created
+  or deleted while discovery ran does that too.
+- *the discovery process crashed (exit code …) without an answer*, or *did not
+  answer within 600 s and was stopped* — the discovery process itself died or
+  hung, wherever it was.
+
+For these, Phoenix has already run discovery a second time, a minute later, in
+a new process with a new ALM session: `migration_log.txt` holds the warning
+`alm-discovery-retried`, whose `reason` says why — for a process that died,
+its exit code or the time limit — and a progress line that announced the
+wait. What to do:
+
+1. Run the same command again. A short fault in the ALM server or the network
+   passes, and each run starts discovery afresh.
+2. If it fails again on the same folder or the same tests, open that folder in
+   the ALM client with the same account: check that it opens and lists its
+   tests, and that the account can read every Test Plan folder. Check the ALM
+   server's health and its logs for the time of the failure. If the discovery
+   process keeps crashing, Event Viewer (*Windows Logs > Application*, events
+   1000 and 1001) names the faulting module
+   ([advanced_troubleshooting.md](advanced_troubleshooting.md) §9).
+3. If it still fails, collect diagnostics for Merito support (see *Collect
+   diagnostics for Merito support* below). The bundle carries the run folder's
+   `migration_log.txt`, where each discovery that reached the Test Plan leaves
+   one `alm-discovery-walk` line: the folders it walked, the tests it saw in
+   each top-level folder, what it skipped, the result of the check against the
+   project's test list, and the error. It also carries the discovery process's
+   own error in full, with the ALM client's error code, from the process logs.
+
+A conversion also runs discovery a second time when it succeeds but comes back
+without tests the signed-off analysis covered; if they are still missing, the
+pre-flight gate refuses the run as `analyzed-but-not-selected`
+([advanced_troubleshooting.md](advanced_troubleshooting.md) §4).
+
+A warning `alm-discovery-folder-unreadable` in `migration_log.txt` is not a
+failure: the project's list holds the tests it names, the walk did not return
+them, and reading their folder failed twice, so discovery could not tell
+whether they belong in the run. It counted them and carried on, and the
+executive summary's Next Steps name them too. Look them up in ALM: a test in
+no Test Plan folder (*Unattached*) is never part of the conversion; a test
+inside the Test Plan should have been found, so run the analysis again and
+check that it is listed.
+
 ### Login succeeds but the domain list is empty
 The account authenticated but has no domain visibility. Ask your ALM
 administrator to grant the user access to the target domain/project — this is
@@ -112,6 +261,59 @@ an ALM permission, not a Phoenix problem.
 ---
 
 ## Conversion problems
+
+### Conversion refused: over the free edition's limit (`license-limit`)
+The conversion has more test cases than your edition converts — more than 100
+in the free edition — and no installed license covers it, so no test was
+converted, backed up or changed, and nothing was written to ALM. Phoenix
+updated only its own run files and logs (on ALM it also signed in and read
+the Test Plan, to count the test cases). The Migration
+Console says *Scoping required* at Step 5, and **Next** stops with *Scoping
+Required*; **Run Conversion** or **Convert Project** stops with *Conversion
+Blocked — Scoping Required*. The command line prints
+`"status": "license-limit"`, and a message that begins *Conversion refused.
+No test was converted, backed up or changed.*, and exits 2.
+
+1. **Check the count.** The `licensing` block in the command's output, and
+   in the analysis's `scan_report.json`, gives `test_cases` and the `limit`
+   that applied; the scoping summary shows the same. The count covers the
+   whole ALM project, or every test under the run's source folders, before
+   any test is parked or excluded, so parking tests or adding *Path
+   Exclusions* does not lower it ([licensing.md](licensing.md) § *How test
+   cases are counted*). The one exception is on disk: tests under folders
+   named `out`, `.git` or `__pycache__`, which the default *Path Exclusions*
+   leave out, count only when the run's *Path Inclusions* and *Path
+   Exclusions* keep them. The count can be higher than *Assets in Scope*. On
+   disk, also check for copies the count does not recognize as Phoenix's
+   own: an old `<name>.bak` backup whose converted test was moved or deleted
+   counts as a test of its own. Move it out of the run's source folders — it
+   may be your only copy of the original VBScript test — or delete it only if
+   you are sure you have another copy.
+2. **Without a license:** press **Open Scoping Summary** on Step 5, and
+   request a consultation on Merito's consultation request form, which the
+   message names. Install the license Merito sends
+   ([licensing.md](licensing.md) § *Installing a license*); you do not have
+   to run the analysis again.
+3. **With a license:** read why it did not apply. In the free edition, the
+   console's dialog lists each unused license under *UFT Phoenix did not use
+   the installed license:*, the command line puts the first reason in its
+   message and all of them in `license_problems`, and `uft-migrate license`
+   lists every license file with its reason. A license applies only while it
+   has not expired; to the ALM projects it names, by the server name it lists
+   (reached by another name, a server is another server: ask Merito to add the
+   name you use); and to the Windows user it was installed for, unless it was
+   installed for all users. Over a license's own limit, ask Merito for a
+   larger license.
+
+The limit never stops you finishing, rolling back or restoring a conversion
+that is already under way, and the analysis runs at any size. One exception
+is an interrupted filesystem conversion whose source folders have since
+gained test cases beyond what your edition converts: it is refused
+after it has rescanned them, and it can no longer be resumed, so run it
+again without `--resume` once the count is within the limit
+([usage.md](usage.md) § *The free-edition limit*). An ALM refusal leaves the
+analysis in the run folder as it was, so Step 5 keeps its reports and
+**Convert Project** works once a license is installed.
 
 ### `Access to the path 'C:\Windows\SysWOW64\out\...' is denied` — the whole run fails
 The conversion stops on the first test with an error like:
@@ -199,11 +401,18 @@ folder.
     default `Domain-Project` ID — skips every test that run already converted
     and is still Python on the server, which is exactly the tests you need to
     rebuild. Run analysis and then conversion under a **new run ID** (a new
-    Analysis Run ID in the Migration Console, `--run-id` on the CLI). On a
+    Analysis Run ID in the Migration Console, `--run-id` on the CLI). If a
+    pasted copy was converted while its original was parked or converted
+    differently, first copy
+    `alm_aom_work\alm_rollback\pasted_copy_owner_maps.json` from the earlier
+    run folder to the same place in the new one
+    ([limitations.md](limitations.md) § *ALM environment boundaries*). On a
     filesystem conversion, convert those tests again with Overwrite Policy
     `backup` or `overwrite`, or into a new output root: the default, `fail`,
     refuses to overwrite what is already there.
-- **"unterminated string literal" reported by UFT at line N**: UFT 26.1's
+- **"unterminated string literal" reported by UFT at line N** (UFT 26.1 only —
+  UFT 26.3's script engine, `ScriptExeEngine.dll`, no longer contains the
+  validator's error text, and the converter's workarounds are harmless there): UFT 26.1's
   pre-execution validator synthesizes a malformed error for lines it *thinks*
   call a test-object method without parentheses; because that synthesized
   statement does not compile, any flagged line — with or without quotes in
@@ -222,6 +431,21 @@ folder.
   run. The command is in
   [advanced_troubleshooting.md](advanced_troubleshooting.md) § *Stale UFT test
   cache (TD_80)*.
+- **A converted test reads `No Run` in Test Lab right after the conversion**,
+  and the ALM execution log says *Unable to open … Test not found*: UFT read a
+  partly deleted copy of the test from TD_80, because a process still held
+  files in it when the cache was purged — usually a leftover UFT Remote Agent
+  (`UFTRemoteAgent.exe`) from an earlier Test Lab run. On the machine running
+  Phoenix, the asset's notes carry a `[warning] UFT test extraction cache
+  (TD_80)` note; the Executive Summary's Next Steps also says what to close
+  when the cache was still not cleared at the end of the run.
+  The converted test in ALM is fine, so this is a false failure: close UFT One,
+  end `UFTRemoteAgent.exe` in Task Manager if it is running, delete
+  `%LOCALAPPDATA%\Temp\TD_80`, and run the test again. Phoenix stops a leftover
+  agent itself when a conversion's purge cannot delete every file after UFT
+  One is closed, and says so in the same note
+  ([advanced_troubleshooting.md](advanced_troubleshooting.md) § *Stale UFT test
+  cache (TD_80)*).
 
 ### A converted test behaves differently with no error reported
 - **You changed which function library a test links after it was converted,
@@ -230,7 +454,10 @@ folder.
   onward. Library links are written into the converted script at conversion
   time, and a later relink does not update them. Change library *content*
   rather than links, or convert again under a new run ID and clear
-  `%LOCALAPPDATA%\Temp\TD_80` on every execution host. See
+  `%LOCALAPPDATA%\Temp\TD_80` on every execution host. If a pasted copy was
+  converted while its original was parked or converted differently, first
+  copy `alm_aom_work\alm_rollback\pasted_copy_owner_maps.json` from the
+  earlier run folder to the same place in the new one. See
   [limitations.md](limitations.md) § *Library links are fixed when a test is
   converted*.
 - **A test takes roughly 6-15 s longer per run than its VBScript baseline**
@@ -346,7 +573,80 @@ what it uploaded. `--allow-blockers` does not clear it. There are two causes:
   the analysis again under a **new run id** (in the console, enter a new
   Analysis Run ID on Step 5 and run Analysis), then convert in that run folder
   so caller and callee convert together. Keep the old run folder: its
-  `alm_rollback` folder holds the pre-conversion originals.
+  `alm_rollback` folder holds the pre-conversion originals. If a pasted copy
+  was converted while its original was parked or converted differently, first
+  copy that folder's `pasted_copy_owner_maps.json` to the same place in the
+  new run folder ([limitations.md](limitations.md) § *ALM environment
+  boundaries*).
+
+### "the source test shared object repositories could not be harvested … refusing to rebuild without them"
+An asset ends `aom-build-failed` with an error that reads *the source test
+shared object repositories could not be harvested (<fault>); refusing to
+rebuild without them because the source associates <repository>.tsr* — or
+*because the source could not be read to rule one out (<error>)*. UFT could
+not tell Phoenix which shared object repositories the test's actions use.
+Phoenix already retried that read on a known transient fault, noting each
+try as *object-repository harvest hit a transient UFT/COM fault (attempt
+n/3), retrying: …*. The test's own files show it uses a shared repository, or
+could not be read. Any of the test's action files counts here, including the
+files of an action the test no longer has: without UFT's answer, Phoenix cannot
+tell the two apart. Converting it anyway would give a test that uploads and
+verifies clean, then finds none of the repository's objects at run time, so
+Phoenix stops instead.
+
+The run treats the failure as transient: it converts the test again, up to
+twice. If it still fails, the conversion stops like any other failed asset and
+rolls back what it uploaded (see *"Post-upload verification failed"* below for
+how to read the statuses). Check UFT's health and licenses on the conversion
+machine (`uft-migrate doctor`), then run the conversion again. If the same test
+keeps failing, open it in UFT and check that its repository associations
+(*Resources → Associate Repositories*) and the `.tsr` resource itself load.
+
+### "shared object repository NOT carried into the rebuilt test … refusing to upload the test without it"
+An asset ends `aom-build-failed` with an error that reads *shared object
+repository NOT carried into the rebuilt test: <repository>. The source
+associates it, and every object that resolves through it would fail at run
+time; refusing to upload the test without it*. UFT reported the shared object
+repository for one of the source test's actions, and the test Phoenix rebuilt
+from it came out without it. Uploading it would give a test that verifies clean
+and then finds none of the repository's objects at run time, so Phoenix stops
+before any of the test's own files are uploaded.
+
+The run first converts the test again, up to twice, noting *pre-upload build
+failure with an unrecognised message; retrying it as transient*. If it still
+fails, the conversion stops like any other failed asset and rolls back what it
+uploaded. Resource relations the conversion had already added to the test in
+ALM, such as the one to the helper runtime library, stay in place: a rollback
+does not remove relations (see [alm_safety.md](alm_safety.md)).
+
+Open the source test in UFT and check that the repository loads
+(*Resources → Associate Repositories*) and that the `.tsr` resource exists in
+ALM at the path it names. Check UFT's health on the conversion machine
+(`uft-migrate doctor`), then run the conversion again. If the same test keeps
+failing, collect a diagnostics bundle (`uft-migrate diagnostics collect`) and
+send it to Merito with the test's name.
+
+### "[warning] the source test's files associate shared object repository … which UFT reports for none of its actions"
+A converted test's notes hold *[warning] the source test's files associate
+shared object repository <repository>, which UFT reports for none of its
+actions and the rebuilt test does not hold. It is most likely left from an
+action the test no longer has; if one of its actions uses it, associate it
+again in UFT*. The note is a warning, not a failure: it does not stop the test
+from converting (or, in an analysis, from being reported ready).
+
+A test's files in ALM can name a shared object repository that none of its
+actions uses: ALM keeps the files of an action that was deleted from the test
+or replaced, and they still name the repository that action used. Phoenix
+carries the repositories UFT reports for the test's actions. A repository only
+the files name is reported on the test rather than refused, because refusing
+it would stop the whole conversion over a repository the test does not use.
+
+Open the converted test in UFT and check its repository associations
+(*Resources → Associate Repositories*). If one of its actions does find its
+objects in that repository, associate it there again. A test that an earlier
+version converted without its repository, and that you convert again, reports
+it this way too: see [limitations.md](limitations.md) § *Shared object
+repositories on caller tests (fixed in 1.3.4)*.
 
 ### "Post-upload verification failed" (status `upload-verify-failed`)
 After every upload Phoenix re-downloads the test and compares it with the built
@@ -366,9 +666,192 @@ Check each asset's final status:
   Test Lab (see [alm_safety.md](alm_safety.md) § *What a restore does not
   undo*), then fix the cause and re-run the whole conversion.
 - **`rollback-failed`** — do **not** run the test. Restore it with
-  `uft-migrate restore` (see [alm_safety.md](alm_safety.md) § *Rolling back*),
-  or from ALM version history or your own backup, then report the issue and send
-  the run folder.
+  `uft-migrate restore … --wave <wave>`, where `<wave>` is the asset's `wave` in
+  `alm_aom_results.json` (see [alm_safety.md](alm_safety.md) § *Rolling
+  back*), or from ALM version history or your own backup, then report the issue
+  with a diagnostics bundle (see *Collect diagnostics for Merito support*
+  below). Until every such test is restored or settled, the
+  next conversion in that run folder stops and prints the restore command for
+  each one.
+
+---
+
+## Native crashes and interrupted ALM conversions
+
+An ALM upload conversion runs under a *crash supervisor*, and each
+all-or-nothing conversion is a *conversion wave* that can span several
+attempts. [advanced_troubleshooting.md](advanced_troubleshooting.md) §9
+explains both; [alm_safety.md](alm_safety.md) § *Interrupting and resuming*
+says what an interruption leaves behind.
+
+Every `uft-migrate restore` command these messages print is complete, and runs
+from any folder: it carries the run id and `--output-root` with the full path
+of the folder that holds the run folder. A command that writes to ALM reads the
+password from `UFT_MIGRATE_ALM_PASSWORD`, and the message says to set it first.
+Run several in the order given, which is callers first.
+
+### The conversion process crashed
+The Migration Console's status line reads *The conversion process crashed (…)*,
+then *Cleaned up after the crash: …* and *Relaunched the conversion (attempt N,
+…)*. Windows ended the conversion process (a native crash); the supervisor
+recorded it, cleaned up and started the conversion again. The new attempt
+checks any test the crash may have left half-written against the copy the wave
+froze before changing it, restores it from that copy if it differs, and
+carries forward the tests already converted.
+
+- **It recovered.** The run carries on and ends as usual. *Conversion Complete*
+  adds how many crashes were recovered. The executive summary's Next Steps say
+  how many were relaunched automatically and whether any struck after a
+  payload write began, and name the evidence folder `crash_recovery\<wave>\`;
+  each affected asset carries a `[crash recovery]` note, listed under **Crash
+  Recovery Notes** on the assets page (`analysis_assets.html`) and in
+  `scan_report.md`. The assets converted before the crash are reported as
+  converted by an earlier attempt of this run, with what their conversion
+  recorded, and the report's total time covers every attempt (not the time
+  between them). Nothing needs doing, but the evidence does not stay forever:
+  Phoenix deletes `crash_recovery\<wave>\` itself once two later conversion
+  waves in this run folder that wrote a test have closed (a launch that wrote
+  no test, such as one the pre-flight gate refused, does not count, even if it
+  replaced a function library: library writes are not recorded in the
+  journal), so copy it elsewhere if your records need it. A memory dump is
+  never in that folder, because a dump may hold the ALM password: if Windows
+  wrote one, it is in the Windows crash-dump folder that the attempt's
+  `crash.json` names (`"wer"` > `"dump"`), and Windows replaces the oldest
+  dumps there (it keeps 10 by default).
+- **Recovery stopped at the crash budget** — the third crash while the same
+  test was in flight, the wave's crashes reaching its crash budget, or the
+  second in a row outside any test. The wave's crash budget is 6 plus 2 % of
+  the tests it has begun converting, rounded down (7 at 50 tests, 12 at 348);
+  each relaunch message states it and how it was reached. A wave an earlier
+  version of Phoenix opened keeps a fixed 6. The supervisor aborts the wave:
+  the test that was in flight, if any,
+  ends `process-crashed` (report category *Crashed the conversion process
+  repeatedly*), and everything the wave wrote is rolled back from its copies,
+  callers first; each asset's status says whether its restore worked
+  (`rolled-back` or `rollback-failed`). A wave with nothing to roll back — it
+  wrote no test, or every test it wrote is already back on its copy — is
+  closed without an abort. *Conversion Failed* lists the outcome by status, and
+  the executive summary's Next Steps say why the wave was aborted and whether
+  its rollback finished. If the test that crashed uses a function library — its
+  own or `PhoenixVBRuntime.pfl` — its notes add that its relation to
+  `PhoenixVBRuntime.pfl` and the shared `.pfl` libraries its conversion wrote
+  are not reverted — exactly which, when the crash came after its upload began,
+  otherwise that it may have — and where the copies saved before they were
+  replaced are. Every asset the rollback restores says the same in its own
+  rollback note. Collect diagnostics for Merito support (see *Collect
+  diagnostics for Merito support* below) — the bundle carries
+  `crash_recovery\<wave>\`, `crash_breadcrumbs.log`, `migration_log.txt` and
+  `resume\`, which matter most, with Windows' crash reports — and re-run the
+  whole conversion once the cause is known.
+- **It crashed during a rollback.** Finishing an interrupted rollback is not
+  automated. The message lists every test still to restore, callers first,
+  and up to three numbered `restore --wave` commands; the full list, in order,
+  is in `crash_recovery\<wave>\restore_commands.txt`, which the message names.
+  Run them, then run the conversion again with the same inputs.
+- **It ended without recording its result.** A conversion process that exits —
+  even with exit code 0 — without recording its result is never reported as a
+  success: the supervisor says what happened and exits with a non-zero code.
+  Unless every asset had already finished, the wave stays open, and running the
+  conversion again continues it. If every asset had finished, the message says
+  so, and running the conversion again carries them all forward and only
+  records the result or writes the reports.
+
+### The conversion process restarted itself to free memory
+`migration_log.txt` shows *planned restart of the conversion process after test
+N …*, then *Restarted the conversion process to free memory (attempt N, planned
+restart K of at most 100 in this session). This is no crash and uses no crash
+budget …*. The conversion process is 32-bit, so it has at most 2 GB of address
+space; once it has finished at least 25 tests in one attempt and its memory is
+high (1,100 MB of private memory, or 700 MB or less of address space left),
+it ends itself between two tests and the supervisor starts it again. The tests
+it converted are carried forward without being read from ALM again, and nothing
+is in flight, so nothing needs doing. No crash is counted and no evidence is
+collected. If the process crashes while shutting down after it decided to
+restart, the log says so (*… then crashed while shutting down …*): that crash
+is recorded with its evidence but still uses no crash budget, and the next
+attempt checks the finished tests in ALM before skipping them. In the unlikely case that a single session needs more than 100 such
+restarts, it stops instead with *planned-restart-limit*: the wave stays open,
+and running the conversion again with the same Run ID continues it.
+
+### The conversion stopped and stays open (`wave-stopped`)
+The conversion exits 2 with a result whose `status` is `wave-stopped` (or
+`journal-unwritable`), and its message starts *Conversion stopped (<reason>).
+No further ALM change was made after this point.* It found something it must
+not guess about, so it wrote nothing more to ALM. Tests the wave had already
+converted stay converted — the message lists them — so the project is part
+Python and part VBScript until the wave continues. Unlike a failed run, the
+wave stays open: the run folder's report set is left as it was, the checkpoint
+is not marked failed, and the stop is written to `alm_wave_stop.json` in the
+run folder. *Conversion Failed* shows the message in full, first, and names
+`alm_wave_stop.json`. The message names the test, the copy to restore it from
+and numbered next steps, with every command written out. Take them, then run
+the conversion again with the same inputs (in the console: **Convert
+Project**, either answer to *Resume Previous Run*): the wave continues.
+
+| Reason | What it means | What to do |
+| --- | --- | --- |
+| `journal-unwritable` | The conversion journal, `resume\alm_test_results.ndjson`, could not be written (disk full, permissions, a file lock), so the conversion stopped before its next ALM write. A program that holds the file for a moment — a backup or sync agent, an antivirus scanner — is waited out for about 8 seconds first. | Fix the cause and run again. |
+| `snapshot-failed` | The copy of a test that the conversion keeps before changing it could not be made in the run folder — the disk is full, for example, or a program holds a file in it. Nothing was written to ALM for that test. | Free disk space (or fix the run folder's permissions, or close that program), then run again with the same inputs: the wave continues where it stopped. |
+| `restore-failed` | After a crash, a test that may be half-written differed from the wave's copy, and restoring that copy failed. | Run the `restore --wave` command in the message, then run again. |
+| `restore-failed-earlier`, `rollback-interrupted`, `rollback-incomplete` | A restore failed in an earlier attempt; or the process stopped while rolling the wave back; or the rollback ended with tests still not back on the wave's copy. These tests may hold converted or half-written payloads. | Run each `restore --wave` command in the message, in the order given, then run again. For `restore-failed-earlier` the message also gives the `--accept-current-state` command, to settle tests you have inspected as they are. |
+| `reconcile-failed` | A test that may be half-written could not be found in ALM, or downloaded, to check it. | If ALM was unavailable, run again once it is back. Otherwise restore the test with the command given, or — when it could not be found — inspect it in ALM and settle it as it is with the `--accept-current-state` command given. |
+| `snapshot-invalid` | The copy the wave froze of a test is missing or damaged, so the test cannot be restored automatically. | Inspect the test in ALM; if it is not intact, put it back from your ALM backup or version history. Then settle it with the `--accept-current-state` command in the message — it sets the damaged copy aside, and the wave freezes a new one from what ALM holds — and run again. Until the test is settled the conversion stops here every time. |
+| `snapshot-drift` | A test changed on the server after this wave first saw it, and the wave may already have written it, so the wave's copy no longer describes it. When the journal shows the wave never wrote that test — it changed after a Cancel, say, before its upload started — there is no stop: the wave freezes its copy again from what ALM holds, keeps the old copy beside it, notes this on the test and logs `alm-wave-snapshot-refrozen`. | Inspect the test, then either put it back to the wave's copy with the `restore --wave` command in the message and run again, or keep the change: close the wave with the `--abandon-wave` command in the message (refused while any test in the wave may be half-written) and convert again — a new wave starts from what the server holds now. |
+| `wave-scope-changed` | The set of tests the conversion finds changed after the wave started. This attempt wrote nothing to ALM; tests the wave converted earlier stay converted. Tests the wave started with that are missing now can come from a transient fault while ALM listed the Test Plan; Phoenix already ran discovery a second time before it stopped (`alm-discovery-retried`). | Run the conversion again with the same inputs: it runs discovery again. Only if the same tests are missing again, check that the path filters and exclusions are the ones the wave started with, and whether those tests were moved or deleted in ALM. When tests were added instead, or to convert the new scope, close the wave with the `--abandon-wave` command in the message, then run the analysis and the conversion again. |
+| `discovery-failed` | The wave was continuing — after a crash, after a planned restart, or on a resume — and discovery, which lists the project's tests first, failed even after its retry (*ALM discovery failed: …* in the detail line). This attempt wrote nothing to ALM and checked nothing yet; tests the wave converted earlier stay converted, and a test a crash interrupted may still be half-written. | Run the same command again: it retries discovery, then continues the wave, checking that test first. If the detail says the login failed, correct the password first (it is not one of the wave's inputs). Until the wave has continued, do not run its tests. See *"ALM discovery failed: …"* above for the other causes. |
+| `legacy-in-flight-unverified` | A test that a Phoenix 1.1.4 or earlier run was converting when it stopped could not be proven unchanged since. | Restore it with the plain `restore` command in the message (no `--wave`), from the first copy this run folder kept of the test — the message says when it was saved; it can be older than the run that stopped, so check it is the version you want — or inspect the test and settle it with the `--accept-current-state` command given; then run again. |
+
+Any other reason is explained the same way in the message itself.
+
+`--accept-current-state` and `--abandon-wave` make **no** change in ALM; they
+only update the run's journal. The messages print them in this form:
+
+```
+uft-migrate restore --output-root "<folder that holds the run folder>" --from-run "<run id>" --wave <wave> --alm-test-id <id> --accept-current-state
+uft-migrate restore --output-root "<folder that holds the run folder>" --from-run "<run id>" --abandon-wave <wave>
+```
+
+The first records that you inspected each named test and accept it as it is
+now, which settles it; the wave's copy of it is set aside, so the next attempt
+takes the accepted state as its starting point. Use it only after checking the
+test in ALM. The second closes a wave without converting further. It is refused
+while any test in the wave may still be half-written, and the refusal lists the
+restores still owed, callers first, and the `--accept-current-state`
+alternative. Tests the wave converted stay converted, and the next conversion
+carries them forward.
+
+### "Another Phoenix process … is working in the run folder"
+A conversion, an analysis or a restore is already running in this run folder,
+and only one may work there at a time. Nothing was written. Wait for it to
+finish (watch `migration_log.txt` in that folder), or stop it, then run again.
+The lock is released when its holder ends, however it ends; the file
+`resume\phoenix_run.lock` stays behind and is harmless. If the message says the
+lock file could not be opened, check the run folder's permissions. In the
+Migration Console the same message appears as *Run Folder In Use* when you
+press **Run Analysis** or **Convert Project**, and the console then leaves the
+run folder exactly as it was.
+
+### "conversion wave … is not settled" or "… was started with other inputs"
+The conversion was refused before anything was written.
+
+- **Not settled.** An earlier conversion wave in this run folder may have left
+  the named tests half-written or half-restored, and a new wave would take that
+  damage as its starting point. The message gives one numbered `restore
+  --wave` command per test, callers first, and the `--accept-current-state`
+  command that settles them as they are once you have inspected them in ALM.
+  Run those, or run the original conversion again to continue that wave, then
+  run your conversion again.
+- **Other inputs.** An unfinished wave is open in this run folder, and this
+  launch differs from the one that started it: any change to the command line
+  other than `--run-id`, `--resume`, `--failed-only` and the value of
+  `--password` counts — in the console, any selection that changes the
+  command *Review Command* shows. If that wave has not written any test yet —
+  it was cancelled before its first upload, for example — it is not refused:
+  it is closed (outcome `superseded-no-writes`), the run says so, and the new
+  launch starts a new wave. A wave that has written a test is refused: the
+  message says which options differ and gives the `--abandon-wave` command
+  that closes it. Run the original command again to continue the wave, or
+  close it with that command once nothing in it is half-written.
 
 ---
 
@@ -430,8 +913,9 @@ it is safe to run at any time.
 
 These appear when a **converted** test executes. Most are runtime issues in the
 test's environment or object repository, but check the conversion notes first:
-some documented limitations and one open defect show up this way. Two rules
-first:
+some documented limitations show up this way, and so does, for a test converted
+by 1.3.3 or earlier, a shared object repository that was not carried (step 1
+under *Cannot identify the object* below). Two rules first:
 
 1. **Prefer running converted ALM tests from ALM.** That is how they will be
    run in production — from your existing Test Lab sets in the ALM
@@ -492,11 +976,15 @@ object-identification failures your baseline hid*.
 
 Work through, in order:
 
-1. **Check this asset's conversion notes.** Look for `[warning] shared object
-   repository NOT carried into the rebuilt test`. If it is there, re-associate
-   the repository in UFT (**Resources > Associate Repositories**) — see
-   [limitations.md](limitations.md) § *Known defect (ALM path): a shared object
-   repository can be dropped on a caller test*. Also review
+1. **Check this asset's conversion notes.** A test converted by 1.3.3 or
+   earlier may hold `[warning] shared object repository NOT carried into the
+   rebuilt test`. If it does, re-associate the repository in UFT
+   (**Resources > Associate Repositories**) — see
+   [limitations.md](limitations.md) § *Shared object repositories on caller
+   tests (fixed in 1.3.4)*. A test converted by this version may hold
+   `[warning] the source test's files associate shared object repository`;
+   if the object belongs to that repository, associate it again the same way.
+   Also review
    [limitations.md](limitations.md) § *Test-level artifacts not carried*:
    Environment variables, externally linked Data Tables and Record-and-Run
    settings do not travel with a conversion, and a test can fail at run time for
@@ -531,16 +1019,170 @@ drill-down pages (`analysis_*.html`), which are always written.
 | File | Contents |
 | --- | --- |
 | `scan_report.html` | Per-asset blockers and warnings from analysis |
-| `executive_summary.html` | Verdict, next steps, links to the detail reports. Written by the `run` command (filesystem or ALM) and by `summarize` — not by `scan`, `convert`, or ALM analysis |
+| `scan_report.json` | The verdict, and in its `licensing` block the test-case count, the limit and the edition the analysis saw |
+| `scoping_summary.html`, `scoping_summary.json` | The analysis in counts and summary figures, with no names, paths, identifiers or test code, to send Merito for scoping a license if you choose; written by every analysis |
+| `executive_summary.html` | Verdict, next steps, links to the detail reports, and, when the run recorded them, the run's start, finish and elapsed time (Run Timing, in local time). Written by the `run` command (filesystem or ALM) and by `summarize` — not by `scan`, `convert`, or ALM analysis |
 | `analysis_assets_failed.html` | Failed assets with their causes (ALM) |
 | `alm_preflight.json` | Why the pre-flight gate refused the run — no ALM writes were made when it did |
 | `alm_aom_results.json` | Per-test ALM pipeline results, incl. blockers and upload verification |
 | `alm_analysis_results.json` | The analysis the pre-flight gate judged the conversion against |
 | `conversion_summary.json` | Machine-readable per-asset outcome of an ALM run — written by ALM analysis as well as by a conversion |
 | `resume/alm_test_results.ndjson` | Per-asset journal — the only record left if the run is killed |
+| `resume/alm_asset_details/` | What the report shows for each converted asset, kept for a later attempt that carries the asset forward |
+| `alm_wave_stop.json` | Why an ALM conversion stopped and stays open, with the next steps — written instead of a report set |
+| `crash_recovery/<wave>/` | The crash supervisor's evidence for each conversion attempt, including Windows' crash report when there was a native crash. Deleted automatically once two later conversion waves in the run folder that wrote to ALM have closed (a wave that wrote nothing, such as a launch the pre-flight gate refused, does not count; *nothing* means no test: such a wave may still have replaced a function library, because library writes are not journaled); never holds a memory dump (`crash.json` names where Windows wrote it) |
+| `crash_breadcrumbs.log` | One line per ALM call or build step of an upload conversion; the last line of a crashed process names the step it died in |
 | `migration_log.txt` | Structured JSON-lines event log (ALM runs) |
 | `convert_report.html` | Per-file conversion status (filesystem only) |
 | `validation_report.html` | Post-conversion syntax/UFT checks (filesystem only) |
 | `analysis_cli_*.log`, `run_cli_*.log` | Raw CLI output captured by the GUI |
 
-When contacting support, send the whole `out/<run_id>/` folder.
+Two places outside the run folder:
+
+| Location | Contents |
+| --- | --- |
+| `%LOCALAPPDATA%\Merito\UFT Phoenix\logs\` | One diagnostics log per Phoenix process, JSON lines: what each process was, the errors it met (with the full traceback and the ALM client's error code) and how its child processes ended. A message that gives a reference such as `E-20261006T101500Z-7720-41` names an error recorded there in full; quote it to support. Kept 30 days. The ALM password is masked before a record is written: by its value when it is 6 characters or longer, and wherever it follows a name such as `password` |
+| `out\_support\` | The support bundles *Collect Diagnostics…* and the Start Menu shortcut *Merito UFT Phoenix Collect Diagnostics* write, each a zip with a folder of the same files beside it; when there is no `out\` folder, they go to `%LOCALAPPDATA%\Merito\UFT Phoenix\support\` |
+
+When contacting support, quote the version you are running. The Migration
+Console shows it on every step, in the bottom-left corner of the dark panel on
+the left (*Version* and the number, with the edition on the line under it; see
+[gui_field_guide.md](gui_field_guide.md) § *The version line*), and
+`uft-migrate --version` prints it. A diagnostics
+bundle records it already, in the zip's name, `README.txt` and
+`MANIFEST.json`. Do not send the run folder: it holds your test sources
+(`alm_aom_work\`) and lacks the process logs, the environment and Windows'
+crash reports. Collect diagnostics instead (below).
+
+## Collect diagnostics for Merito support
+
+Phoenix keeps its diagnostics logs all the time: there is nothing to switch
+on, and the problem does not have to happen again for you to collect it. You
+can collect afterwards, even after closing Phoenix: each way below reaches back
+as far as Phoenix keeps its logs, up to 30 days. When Merito support asks for
+diagnostics, or a run failed in a way this guide does not explain, collect a
+support bundle and send it to Merito support. Merito supports the Free Edition
+on a best-effort basis. For the Licensed Edition, your order form or statement
+of work sets the support. Merito keeps a bundle you send confidential, uses it
+only to provide that support, and deletes it within 30 days after you ask
+(LICENSE section 6.c, which says what Merito may keep). The simplest way first:
+
+1. **Answer Yes when the failure dialog asks.** *Conversion Failed* ends with
+   the question *Collect diagnostics for Merito support now? Phoenix saves a
+   zip on this PC and opens its folder. Nothing is sent.* **Yes** collects the
+   run that just failed, at once — or, when a collect you started earlier is
+   still running, as soon as it ends: its *Diagnostics Saved* then says the
+   failed run is collected next, and the zip saved after it is the one to
+   send. **No** closes the dialog, and you can still collect later. A
+   conversion you stopped with **Cancel** asks nothing. A failed analysis has
+   no dialog: its status line names **Collect Diagnostics…** (3 below).
+2. **The Start Menu shortcut:** **Start Menu > Merito > Merito UFT Phoenix
+   Collect Diagnostics** (type *collect diagnostics* in Start search). It
+   collects without opening the Migration Console, so it also works after you
+   closed the console and when the console will not start. A small window
+   says *Collecting diagnostics for Merito support…* while it works, usually
+   under a minute; then the console's own *Diagnostics Saved* message names
+   the zip, and its folder opens. It takes the newest run, and saves the
+   bundle in your profile's `out\` folder, the one the Migration Console uses
+   when started from the Start Menu.
+3. **Collect Diagnostics…** in the Migration Console, or the command line
+   below. The button sits bottom left beside **Back** on every step, and works
+   even while a conversion runs, which is how a hang is collected. It takes
+   the run in progress, else the last analysis's, says where the bundle is
+   when it is done, and opens its folder.
+
+**From the command line**, in the folder you launch Phoenix from (`uft-migrate`
+is on `PATH` when setup added it, its default; otherwise use
+`<install folder>\bin\uft-migrate.cmd`):
+
+```
+uft-migrate diagnostics collect
+```
+
+It includes the newest run, or the one you name with `--run` or `--run-dir`;
+`--no-run` collects the logs and the environment only, and `--list` prints
+what would be collected and writes no bundle (only the collector's own process
+log). When `uft-migrate` itself cannot start,
+`"<install folder>\runtime\python.exe" -m uft_migrate.diagnostics collect`
+runs the same collector. Every option is in [usage.md](usage.md) §
+*Collecting diagnostics*.
+
+With the dialog, the shortcut or the button, if crash dumps, or the scripts of
+failed tests, exist for the run, one question asks first whether to save them
+as well, to a separate file: **Yes** saves only what it named, **No** the logs
+only, and **Cancel** nothing at all. Otherwise nothing is asked. The command
+line asks nothing: its `--include-…` options decide (below).
+
+**When none of these works**, zip the logs folder itself and send that zip: in
+File Explorer, type `%LOCALAPPDATA%\Merito\UFT Phoenix` in the address bar,
+right-click the `logs` folder and choose **Send to > Compressed (zipped)
+folder** (on Windows 11, **Compress to ZIP file**). When that folder does not
+exist, the logs are in `%TEMP%\Merito UFT Phoenix\logs`. The ALM password is
+masked in it, as in every log record (see the table above). Unlike a bundle,
+it keeps the ALM server, domain, project, user and test names and your Windows
+user name, and it lacks the environment, Windows' crash reports, the run's
+journal, logs and results that a bundle takes from the run folder, and
+`TRIAGE.md`. Never send the run folder instead: it holds your test sources and
+can be gigabytes.
+
+**Where it is saved.** In the output folder:
+`out\_support\UFTPhoenix-diagnostics-<version>-<time>.zip`, beside a folder of
+the same name that holds the same files unzipped, so you can read every file
+before you send it; `MANIFEST.json` lists each file with its SHA-256 hash. The
+Start Menu shortcut uses the `out\` folder of your profile,
+`%USERPROFILE%\out`. When `out\` does not exist or cannot be written, the
+bundle goes to `%LOCALAPPDATA%\Merito\UFT Phoenix\support\`. *Diagnostics
+Saved* always names the path.
+
+**Nothing is sent.** Collecting opens no network connection, logs in to
+nothing, starts neither UFT nor the ALM client, and writes nothing into a run
+folder. You send the zip yourself, by your usual channel.
+
+**What is inside:** the process logs of the last 30 days, as far back as
+Phoenix keeps them (on a busy PC the oldest are deleted sooner, once the logs
+folder passes 200 MB; when there are more than a bundle holds, the newest come
+first); the environment (Windows, Python and pywin32, the UFT One and ALM
+client versions, Windows Error Reporting's settings and crash reports,
+Application events 1000 and 1001, and `doctor`'s read-only checks); the run's
+logs, journal and results, chosen by exact file name; and `TRIAGE.md`, the
+first look Merito support takes, which you can read too.
+
+**What is never inside:** your test scripts, data tables, object repositories or
+function libraries (`alm_aom_work\`, `converted\`), the Migration Console's
+settings file, `.env` files, license files or memory dumps. ALM server, domain,
+project, user, test, folder and library names are replaced by tokens such as
+`project-1` and `test-3f9a2c`, and so is the licensee of a UFT Phoenix license
+(`licensee-1`), with the ALM projects a license names, even inside Phoenix's
+own sentences about the license; the file that maps the tokens back,
+`…KEEP-PRIVATE-names.json`, stays beside the zip on this PC. The environment
+names the edition in use by license id, limit and expiry only. `--keep-names`
+keeps the names, the licensee's included. Phoenix's own words in its records (event and
+step names, exception types, its code lines, COM member names) stay as they
+are, even where one equals a name of yours: a test named *Terminal* does not
+turn the journal's `terminal` records into tokens. A bundle that cannot be
+cleaned is not written at all.
+
+**The ALM password.** A value that follows a name such as `password`,
+`--password` or `UFT_MIGRATE_ALM_PASSWORD` is masked in every file. Every file
+is also searched for the password itself, in each of its encodings, and a file
+that still holds it is left out and listed in `MANIFEST.json` — when the
+collector knows the password. *Collect Diagnostics…* passes it, and the
+collector also reads the password the Migration Console saved in
+`out\.uft-migrate-gui-cache.json` (decrypted in memory, for your Windows account
+only) — which is how the Start Menu shortcut, started in your profile, knows
+it. From a command line, set `UFT_MIGRATE_ALM_PASSWORD` before
+`uft-migrate diagnostics collect`. When no password was available,
+`MANIFEST.json` says so under `redaction.limits`: *no ALM password was available
+to scan by value*.
+
+**The separate file.** Crash dumps and failed tests' scripts are saved only if
+you answer **Yes** to the question about them, and then only the kinds it
+named (or when you pass `--include-dumps`, `--include-failed-tests` or
+`--include-test`), and only to a second file, `…-EXTRAS-SENSITIVE.zip`. A dump
+can hold your ALM password and test data, and the scripts are your test code.
+Send that file only if Merito support asks for it, by a secure channel, and
+change the ALM password afterwards. Windows writes a dump only where it was set
+up to: when a native crash left none, Merito support may ask your
+administrator to switch crash dumps on for Phoenix for a while and make the
+crash happen again, the one case where a problem must be repeated; support
+sends the steps, including the one that switches dumps off again.
