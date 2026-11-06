@@ -8,11 +8,10 @@ Three things to settle before you start:
   the machine.
 - **The install is still fully offline.** Nothing is downloaded, and no Python
   already on the machine is used or needed.
-- **Windows may warn before setup runs.** The installer does not carry a
-  code signature, so an `.exe` that reaches the machine through a browser or
-  email triggers SmartScreen's *Windows protected your PC*, and some endpoint
-  protection suites quarantine it without asking. Verify the published SHA256
-  before you run it — see [Verify the download](#verify-the-download).
+- **The installer is code-signed by Merito Solutions, Inc.** The UAC prompt
+  shows Merito Solutions, Inc. as the verified publisher. If it shows another
+  publisher or Unknown publisher, do not run it. See
+  [Verify the download](#verify-the-download).
 
 Phoenix installs as the free edition. Its analysis runs at any size, for
 assessment only, and it converts an ALM project, or a filesystem run, of up
@@ -43,17 +42,15 @@ interpreter.
 
 ## Verify the download
 
-The installer is unsigned, so Windows cannot tell you where it came from. The
-SHA256 published with the download can:
+The installer is code-signed by Merito Solutions, Inc. Before you run it,
+right-click `MeritoUFTPhoenix-<version>-Setup.exe`, open **Properties >
+Digital Signatures**, and confirm the signer is Merito Solutions, Inc. The UAC
+prompt shows the same name as the verified publisher. If the signature is
+missing or invalid, or names another publisher, do not run the file and
+contact Merito.
 
-```powershell
-Get-FileHash .\MeritoUFTPhoenix-<version>-Setup.exe -Algorithm SHA256
-```
-
-Compare the hash with the one published alongside the download. If they
-differ, do not run the file. `README-INSTALL.txt`, which ships beside the
-installer, carries the same check plus the deployment notes for the team that
-pushes it out.
+`README-INSTALL.txt`, which ships beside the installer, carries the deployment
+notes for the team that pushes it out.
 
 ## Install
 
