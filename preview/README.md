@@ -5,8 +5,8 @@
 
 > [!WARNING]
 > **Preview — under review.** This is a pre-release preview of the UFT Phoenix
-> documentation, published from an unmerged change. It is not a release and
-> may change or be withdrawn.
+> documentation, published from an unmerged change (branch fix/docs-preview-app-packaging, commit 112b23d, published 2026-11-06 23:20 UTC). It is not a
+> release and may change or be withdrawn.
 
 
 <p align="center">
@@ -101,7 +101,7 @@ and team enablement.
 ## About this repository
 
 This repository publishes the customer documentation for UFT Phoenix
-1.4.0. UFT Phoenix itself is proprietary software of Merito Solutions,
+1.4.1. UFT Phoenix itself is proprietary software of Merito Solutions,
 Inc., and its source code is not published here. The software is licensed
 under the agreement in [LICENSE](LICENSE), the same one the installer shows.
 The documentation is © Merito Solutions, Inc., all rights reserved — see
