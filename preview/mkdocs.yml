@@ -62,7 +62,7 @@ extra:
   # true only for a --preview publish: noindex pages and a Preview banner.
   preview: true
   # A preview's branch, commit and publish time, shown in its banner.
-  preview_source: "branch fix/docs-preview-app-packaging, commit 5d291d7, published 2026-11-07 02:46 UTC"
+  preview_source: "branch fix/docs-preview-app-packaging, commit 631fcd0, published 2026-11-07 03:43 UTC"
   generator: false
   social:
     - icon: fontawesome/solid/globe
