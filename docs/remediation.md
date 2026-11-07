@@ -84,7 +84,7 @@ folder that does not hold Phoenix's first-sight record of it. The error names
 the other test. Converting that test does not clear a test that owns no
 records, or one whose records differ from its manifest in a way other than a
 conversion's rename: that asset stays disqualified at the pre-flight gate. A
-copy whose records its own conversion renamed is recognised again once its
+copy whose records its own conversion renamed is recognized again once its
 original has been converted with the same actions — unless two action
 records of either test share a description, which the error then names — or
 once its first-sight record is in the run folder (copy

@@ -6,6 +6,7 @@
   {%- if config.extra.preview -%}
     <strong>Preview — under review.</strong> A pre-release preview of the UFT
     Phoenix documentation; not a release, and it may change or be withdrawn.
+    {%- if config.extra.preview_source %} From {{ config.extra.preview_source }}.{% endif %}
   {%- endif -%}
 {% endblock %}
 

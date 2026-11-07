@@ -365,7 +365,7 @@ What **only ALM project conversion** re-applies:
   calls another test's actions and, without a note, on any test whose
   repositories UFT could not read (fixed in 1.3.4, see below)
 - six `Settings.Run` fields: iteration mode, start and end iteration, on-error
-  behaviour, object sync timeout, disable smart identification
+  behavior, object sync timeout, disable smart identification
 - the associated add-in set
 
 A local filesystem conversion carries none of those three, and the consequences
@@ -399,7 +399,7 @@ a statement of how often it will affect you.
   survives because Action0's script is re-emitted with its `RunAction` calls,
   and on the ALM path the six `Settings.Run` fields above are re-applied — but
   anything else those profiles held (additional Vuser profiles, per-action
-  run-logic customisation) is not. Every test in the reference test set shared
+  run-logic customization) is not. Every test in the reference test set shared
   one identical `default.usp`, so that validation could not have detected this
   and did not.
 - **Action descriptions are not carried.** Each rebuilt action is authored with
@@ -625,7 +625,7 @@ both conversion paths, differing only in where the shared `.pfl` lives:
   final location as `--output-root`. Every such binding is listed in the
   "Portability Manifest" section of `convert_report.html`.
 - **Libraries linked from outside the source roots are converted but not
-  analysed.** Design-time library linkage lives in the binary `Test.tsp` and is
+  analyzed.** Design-time library linkage lives in the binary `Test.tsp` and is
   readable only through the AOM, so the analysis (which reads the source roots
   from disk) cannot see it: a library a test links from a folder outside every
   source root gets no inventory entry, no planned-transformation row and no
@@ -701,7 +701,7 @@ needs. The block sits at the top of the script, or directly after the
   "Changed Lines" measure the converter's output, which is produced before the
   helpers move into the library.
 - **Mixed projects are fine.** A script converted by a Phoenix build that
-  predates `PhoenixVBRuntime.pfl` — recognisable by pasted helper definitions
+  predates `PhoenixVBRuntime.pfl` — recognizable by pasted helper definitions
   and no `# _phoenix_vb_runtime` block — keeps its pasted helpers until it is
   converted again; both forms run side by side.
 - **A converted library already on the server keeps its pasted helpers.** If
@@ -773,7 +773,7 @@ conversion rewrites both blocks.
    tests different library code, update the library they already link: upload
    new content into the same ALM Function library resource, or overwrite the
    same `.pfl` on disk. Leave the `_phoenix_lib_marker__…` function at the end
-   of the library in place; the block uses it to recognise the right library
+   of the library in place; the block uses it to recognize the right library
    when it has to search by file name.
 2. **If a link must change, convert again afterwards.** Conversion removes both
    generated blocks and writes them again from the test's links at that moment.
@@ -837,7 +837,7 @@ conversion rewrites both blocks.
   a copy's action record when the rebuild moves the action to another folder,
   and a restore does not rename it back. In a run folder that does not hold
   the file — a new run ID, or a folder the file was deleted from — Phoenix
-  still recognises a copy converted with its original: it pairs the copy's
+  still recognizes a copy converted with its original: it pairs the copy's
   records with the original's, which that conversion renamed alike, unless
   two action records of either test share a description. A copy converted
   while its original was parked or converted differently, or one whose action
@@ -880,7 +880,7 @@ conversion rewrites both blocks.
   with bare function calls are **not detectable** — verify library linkage
   in ALM before migrating.
 - OTA entity contracts vary by ALM deployment and patch level; site-specific
-  behaviors encountered so far are catalogued in
+  behaviors encountered so far are cataloged in
   [advanced_troubleshooting.md](advanced_troubleshooting.md) §6.
 - UFT **API/Service tests** (C#-based) are inventoried and skipped;
   conversion coverage is GUI/script assets.
@@ -1084,9 +1084,9 @@ stricter. Other tests in the same project logged a `Replay Warning` at a similar
 duration under VBScript and still passed after conversion. Those warnings came
 from `OptionalStep` lines: under VBScript a skipped optional step is recorded as
 a `Replay Warning` after the sync timeout has been waited out, which is intended
-behaviour (see *OptionalStep handling* above). The tests that failed logged
+behavior (see *OptionalStep handling* above). The tests that failed logged
 their `Replay Warning` on a mandatory step. The grading difference itself is UFT
-engine behaviour that Phoenix does not control; what is actionable is the
+engine behavior that Phoenix does not control; what is actionable is the
 detection method above.
 
 ### A source helper that scans every process runs slower after conversion

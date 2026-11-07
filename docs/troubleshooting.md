@@ -508,7 +508,7 @@ so they always block there.
 
 `GoTo <label>` (including the inline `If … Then GoTo <label>` form), `On Error
 GoTo <label>` and VBScript classes (`Class…End Class`, `Property Get/Let/Set`)
-are recognised by no construct detector, so no blocker names them and a scan
+are recognized by no construct detector, so no blocker names them and a scan
 whose only issue is one of them still reports `go_no_go: go` — but they are
 not silent. The converter emits them verbatim (`Class(Cart)`,
 `Property(Get Bar)`, `On Error GoTo Handler`), the result is not valid Python,
@@ -846,7 +846,7 @@ The conversion was refused before anything was written.
   other than `--run-id`, `--resume`, `--failed-only` and the value of
   `--password` counts — in the console, any selection that changes the
   command *Review Command* shows. If that wave has not written any test yet —
-  it was cancelled before its first upload, for example — it is not refused:
+  it was canceled before its first upload, for example — it is not refused:
   it is closed (outcome `superseded-no-writes`), the run says so, and the new
   launch starts a new wave. A wave that has written a test is refused: the
   message says which options differ and gives the `--abandon-wave` command
@@ -901,7 +901,7 @@ The analysis report's **Version Control & Locks** section (same name in the
 markdown summary) lists how many assets are checked out or locked and names the
 holder of each — the first 100 of each kind, though the counts always cover
 all of them. It is the chase list to clear before a conversion. That section is
-written only when the project is version-controlled (at least one analysed asset
+written only when the project is version-controlled (at least one analyzed asset
 reports version control enabled); on a project without version control it is
 omitted entirely, and a lock holder is then named only in the per-asset run
 note described above. Analysis itself performs no version-control writes, so
@@ -946,7 +946,7 @@ exactly as the VBScript original did on that host. If this error appears:
 
 - Read the path in the error dialog literally and check it in File Explorer.
 - Correct the path in the source test, or install the application at that
-  path. A surviving vendor-era prefix is intended behaviour, not a converter
+  path. A surviving vendor-era prefix is intended behavior, not a converter
   gap — do not report it as one. (Phoenix deliberately never rewrites these
   prefixes: a rewrite can collapse a test's own fallback list of install
   locations into one repeated path.)

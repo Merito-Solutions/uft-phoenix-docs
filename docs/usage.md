@@ -42,7 +42,7 @@ With `--run-id` omitted, a filesystem run gets a UTC timestamp id
 (`YYYYMMDD_HHMMSS`), while an ALM run is keyed on `<Domain>-<Project>` from the
 `--domain`/`--project` you passed — so repeat ALM runs re-enter the same folder,
 with the resume and anti-clobber machinery that implies, unless `--run-id` is
-given. The name is normalised: a domain written in capitals (letters, digits and
+given. The name is normalized: a domain written in capitals (letters, digits and
 underscores only) is title-cased, and any character other than a letter, digit,
 `-`, `_` or `.` becomes an underscore, so the domain `MY_DOMAIN` and project
 `MY_PROJECT` run in `out\My_Domain-MY_PROJECT`. `doctor`, `license`, `restore`
@@ -124,7 +124,7 @@ stopped saying `running`. A launch with a different command line closes an
 unfinished wave that has not written any test and starts a new one; once the
 open wave has written a test, it is refused, naming the options that differ
 and the `restore --abandon-wave` command that closes the wave. A conversion
-that was cancelled, that stopped, or that a crash ended before recovery could
+that was canceled, that stopped, or that a crash ended before recovery could
 finish leaves its wave open unless the wave was rolled back; see
 [troubleshooting.md](troubleshooting.md) § *Native crashes and interrupted ALM
 conversions*. A later conversion in the same run
@@ -529,7 +529,7 @@ With `--json`, `collect` prints one document at column 0, with no `event` key:
 null), `names_map` (the token map, which stays on this PC), `headline` and
 `error`. It exits **0** when a bundle was written and **2** when the collector
 refused or failed, or nothing was collected because the question was
-cancelled — the error names the rule that stopped it, never a value. The exit
+canceled — the error names the rule that stopped it, never a value. The exit
 codes are the same with `--show-result`.
 
 `diagnostics triage` is the reader Merito support uses; it reads a bundle zip, a
@@ -1143,7 +1143,7 @@ In the run folder, after an ALM analysis or conversion:
   or why that could not be read. The pre-flight gate reads it; nothing counts
   it as a test result.
 - `alm_analysis_results.json` — the analysis payload frozen when the pre-flight
-  gate passed, so the conversion cannot overwrite the evidence that authorised
+  gate passed, so the conversion cannot overwrite the evidence that authorized
   it.
 - `analysis_reports\` — the analysis's own report set, copied byte for byte
   before the conversion rewrites those files under the same names:
@@ -1186,7 +1186,7 @@ In the run folder, after an ALM analysis or conversion:
 - `dependency_graph.json` — the graph the report's **Dependency Graph JSON**
   link opens; on ALM runs it is built from `analysis_dependency_graph.json`.
 - `migration_log.txt` — JSON-lines event log.
-- `file_manifest.txt` — flat manifest of the analysed scope.
+- `file_manifest.txt` — flat manifest of the analyzed scope.
 - `resume\alm_test_results.ndjson` — the per-asset conversion journal that
   drives Carried Forward and decides which conversion wave a launch continues.
   `resume\alm_asset_details\` beside it keeps what the reports show for each
@@ -1202,7 +1202,7 @@ In the run folder, after an ALM analysis or conversion:
   recovery, the wave's rollback and `restore --wave` use,
   `pasted_copy_owner_maps.json` the record Phoenix makes of each pasted
   copy's own asset records the first time it sees the copy, which a restore
-  of a converted copy uses and which recognising a copy converted without its
+  of a converted copy uses and which recognizing a copy converted without its
   original depends on, and
   `resources\<wave>\<test id>\` the bytes of each `.pfl` library a wave
   replaced. Each write's "prior copy" holds the bytes THAT write replaced; the

@@ -101,7 +101,7 @@ Launch: `uft-migrate-gui` (GUI) and `uft-migrate` (CLI).
    working links to the per-asset pages (Assets in Scope, Assets Passed,
    Assets Failed, Scan Blockers, Convertible Findings, Timing Metrics, and
    Out of Scope when any asset was excluded). The CLI Output pane holds the
-   raw log. An ALM analysis report is organised by asset, not by file.
+   raw log. An ALM analysis report is organized by asset, not by file.
 
 **TC-06 — Cancel and re-run**
 1. Start an analysis on a larger source (a bigger filesystem tree or ALM
@@ -110,7 +110,7 @@ Launch: `uft-migrate-gui` (GUI) and `uft-migrate` (CLI).
    responsive. The status line briefly reads "Cancel requested — stopping
    analysis. …" and then "Analysis failed. …", and the progress line reads
    "Analysis did not complete." That is the expected end state for a
-   cancelled run: the cancel kills the process, so the CLI exits without a
+   canceled run: the cancel kills the process, so the CLI exits without a
    result payload.
 3. Re-run with the same Analysis Run ID and answer **Yes** to *Resume
    Previous Run*.
@@ -378,7 +378,7 @@ A conversion re-run into the same run folder skips assets its journal
 records as uploaded and verified, provided the server still holds their
 Python payload. This is what makes a long run survive an interruption.
 1. With TC-11's conversion complete, click **Convert Project** again with
-   the same run ID. (The analysis that authorised TC-11 is frozen in the
+   the same run ID. (The analysis that authorized TC-11 is frozen in the
    run folder, so the pre-flight gate still passes.)
 2. PASS: every asset TC-11 converted is skipped with the note "Already
    converted: uploaded and verified by an earlier run of this scope…",
@@ -717,7 +717,7 @@ budget and the abort it triggers are covered by the automated test suite only.
 3. Set the confirmation too, and name a test that links a function library
    of its own (a `.qfl` converted to a `.pfl`), with step `before-upload`.
 4. PASS: refused again, naming the linked library as the reason and offering
-   `after-intent`; nothing is written. A test id outside the analysed scope is
+   `after-intent`; nothing is written. A test id outside the analyzed scope is
    refused the same way. A test whose only library is the shared
    `PhoenixVBRuntime.pfl` is not refused for that reason.
 
@@ -805,11 +805,11 @@ switch refuses this step otherwise.
    interruption are carried forward, and the run completes.
 7. Optional — a wave that has written no test. On a pilot project that is still
    VBScript (before step 1, or after restoring it), in a run folder of its own
-   (a new run id, analysed first): start the conversion, press Ctrl+C before
+   (a new run id, analyzed first): start the conversion, press Ctrl+C before
    the first asset's upload begins — while the run folder's
    `crash_breadcrumbs.log` holds no `upload:` line — then run the same command
    with one option added. After a restore with `uft-migrate restore`, the new
-   run folder recognises TC-10's pasted copy if it was converted with its
+   run folder recognizes TC-10's pasted copy if it was converted with its
    original; if it was converted while its original was parked or converted
    differently, copy `alm_aom_work\alm_rollback\pasted_copy_owner_maps.json`
    from the run folder that converted it to the same place in the new one

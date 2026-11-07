@@ -853,7 +853,7 @@ finishes and kept on screen for troubleshooting.
 ### Version Control & Locks (in the analysis report)
 
 Analysis performs no version-control writes. For **version-controlled** ALM
-projects — at least one analysed asset reports version control enabled — the
+projects — at least one analyzed asset reports version control enabled — the
 scan report (and the markdown summary) carries a **Version Control & Locks**
 section: counts plus who holds each checkout and entity lock, up to 100 rows
 per list. Treat it as the pre-migration chase list — before running the
@@ -983,7 +983,7 @@ third it does not refuse — it simply does not clear the gate:
   rename: re-create such a test in ALM so it owns its records, which gives it
   a new test id and leaves its Test Lab history with the old one, or retire it
   ([remediation.md](remediation.md), blocker 3). A copy whose records its own
-  conversion renamed is recognised again once its original has been converted
+  conversion renamed is recognized again once its original has been converted
   with the same actions — unless two action records of either test share a
   description, which the reason names — or once its first-sight record is
   copied into the run folder
@@ -1109,7 +1109,7 @@ appears (it travels via environment variable). Use it to hand a reviewed
 configuration to a scheduler or CI job. It is not the analysis command — see
 the note at the top of this guide.
 
-**Run Conversion** / **Convert Project** — the primary button, labelled **Run
+**Run Conversion** / **Convert Project** — the primary button, labeled **Run
 Conversion** on the UFT FileSystem workflow and **Convert Project** on the
 Upgrade ALM Project workflow (the screen title changes to match). It executes
 the full pipeline for your workflow: scan → convert → validate, and for ALM
@@ -1198,7 +1198,7 @@ left part Python and part VBScript. The *Conversion Failed* dialog that follows
 does not ask to collect diagnostics, since you stopped the run; its last line
 names **Collect Diagnostics…** for when you want them.
 
-Treat a cancelled ALM run as an incident, not a pause: the test that was in
+Treat a canceled ALM run as an incident, not a pause: the test that was in
 flight may be half-written. Do not let anyone run it until you have restarted
 the conversion as below — before it converts anything, the restart compares
 that test with the copy the conversion wave froze before changing it, and
@@ -1226,7 +1226,7 @@ Restarting afterwards differs by workflow:
   that are still Python on the server are skipped and shown as **Carried
   Forward**; the asset that was in flight, and everything after it, is
   converted. Change a selection first, and a wave that has not written any
-  test — cancelled before its first upload, say — is closed and a new one
+  test — canceled before its first upload, say — is closed and a new one
   starts; a wave that has is refused, and *Conversion Failed* names what differs and
   the command that closes the wave (see [troubleshooting.md](troubleshooting.md)
   § *Native crashes and interrupted ALM conversions*). A carried-forward test
