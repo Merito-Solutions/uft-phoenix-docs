@@ -57,7 +57,7 @@ model), [gui_field_guide.md](gui_field_guide.md) (console reference),
   Lab history behind, or retire it. Converting the other test does not clear
   the refusal of a test that owns no records, or whose records differ from
   its manifest in a way other than a conversion's rename. A copy whose
-  records its own conversion renamed is recognised again once its original
+  records its own conversion renamed is recognized again once its original
   has been converted with the same actions — unless two action records of
   either test share a description — or once its first-sight record is
   copied into the run folder ([remediation.md](remediation.md), blocker 3).
@@ -150,7 +150,7 @@ model), [gui_field_guide.md](gui_field_guide.md) (console reference),
   after conversion with nothing wrong in the conversion
   ([limitations.md](limitations.md) § *Conversion can surface
   object-identification failures your baseline hid*). A `Replay Warning`
-  from a skipped optional step is intended behaviour and still passes after
+  from a skipped optional step is intended behavior and still passes after
   conversion. Fix the descriptors of a genuine false pass and re-baseline,
   or record it as a known baseline defect. When you compare durations,
   allow for a source helper that scans every process: it runs seconds
@@ -180,7 +180,7 @@ model), [gui_field_guide.md](gui_field_guide.md) (console reference),
   then purge `%LOCALAPPDATA%\Temp\TD_80` and run analysis and conversion
   under a **new** run id, which gives the second pass its own report set to
   compare against the first. `restore` does not rename a converted pasted
-  copy's action records back: the new run folder still recognises a copy
+  copy's action records back: the new run folder still recognizes a copy
   converted with its original, but one converted while its original was
   parked or converted differently is refused there as `shared-assets` unless
   you first copy `alm_aom_work\alm_rollback\pasted_copy_owner_maps.json` from
@@ -269,7 +269,7 @@ model), [gui_field_guide.md](gui_field_guide.md) (console reference),
   native crash of the conversion process needs no re-run at all: the crash
   supervisor relaunches the conversion itself, within a crash budget
   ([alm_safety.md](alm_safety.md) § *The safety model*, item 10). A run you
-  **cancelled** is different: the cancel kills the process outright, so
+  **canceled** is different: the cancel kills the process outright, so
   nothing is rolled back, any checkout the run took stays open until the
   re-run undoes it, the UFT cache is not purged and a UFT process may
   survive. Do not let anyone run the test that was in flight until the re-run

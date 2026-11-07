@@ -139,11 +139,11 @@ or failure before you roll this out.
 | Code | Meaning |
 | --- | --- |
 | `0` | Success. |
-| `1` | Setup failed to initialise. |
-| `2` | Cancelled before the install started: the license agreement was declined, the wizard was cancelled, a silent run omitted `/ACCEPTEULA`, or `/LICENSEFILE` named no file, a file that is not there, or was written without its `=`. |
+| `1` | Setup failed to initialize. |
+| `2` | Canceled before the install started: the license agreement was declined, the wizard was canceled, a silent run omitted `/ACCEPTEULA`, or `/LICENSEFILE` named no file, a file that is not there, or was written without its `=`. |
 | `3` | Fatal error while preparing to install. |
 | `4` | Fatal error during the install — including a failed post-install verification, which rolls the installation back. |
-| `5` | Cancelled during the install, or *Abort* at an Abort-Retry-Ignore prompt. |
+| `5` | Canceled during the install, or *Abort* at an Abort-Retry-Ignore prompt. |
 | `6` | Setup was forcibly terminated. |
 | `7` | Setup determined it cannot proceed while preparing to install. |
 | `8` | Setup determined it cannot proceed until the machine is restarted. Restart, then run it again — this is a code to retry, not a success. |
@@ -247,7 +247,7 @@ old version back.** Setup clears `runtime\`, `bin\` and `docs\` under the
 install folder before copying the new payload — otherwise a module dropped
 between releases lingers inside the sealed runtime and shadows its
 replacement, which presents as "the fix did not take". Setup's rollback does
-not restore those three trees, so an upgrade that fails or is cancelled
+not restore those three trees, so an upgrade that fails or is canceled
 part-way leaves neither version working, and the way out is to run the
 installer again. Do not start one on a machine that is mid-engagement without
 the time to see it finish.
@@ -383,7 +383,7 @@ Console keeps. Delete those folders yourself when a machine is decommissioned.
   automatically, with no `--config`. The installed product reads JSON only:
   `.yaml`/`.yml` config files need PyYAML, which the offline package does not
   include.
-- **Extra UFT methods.** To have Phoenix recognise framework methods of your
+- **Extra UFT methods.** To have Phoenix recognize framework methods of your
   own, use *Custom UFT Methods* in the Migration Console, or
   `--custom-uft-method` (repeatable) / `custom_uft_methods` in the config file.
 - **The UFT object model.** The full object model ships with the product; you

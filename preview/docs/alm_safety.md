@@ -182,7 +182,7 @@ complete inventory of those writes.
 
    Why never fail: a whole-project ALM conversion is **all or nothing**. A
    run that stops partway has to roll back, and a run whose rollback fails —
-   or that is cancelled — leaves the project half Python and half VBScript,
+   or that is canceled — leaves the project half Python and half VBScript,
    which breaks cross-test action chains (a Python caller cannot execute a
    VBScript callee) and poisons every later conversion attempt. One
    stranger's stale edit lock is not worth that.
@@ -374,7 +374,7 @@ run's result.
   fails outright stops the wave too (`discovery-failed`), with nothing written:
   run the same command again, which retries discovery and then checks any test a
   crash left half-written. A launch with **other inputs** closes an open wave
-  that has not written any test yet — one cancelled before its first upload, for
+  that has not written any test yet — one canceled before its first upload, for
   example — and starts a new one. Once the open wave has written a test, such a
   launch is refused, with the options that differ and the command that closes
   the wave; and no new wave starts while any wave in the run folder may still
@@ -597,8 +597,8 @@ and re-point its action script rows. They do **not** undo:
   out there has no copy the run can tie to that first write — an attempt
   interrupted while converting the test that wrote it first, for example,
   recorded nothing of what it wrote — so check it against your ALM backup. One
-  case the run cannot detect: if you cancelled a conversion after it CREATED a
-  new library, the next conversion's copy of that library holds the cancelled
+  case the run cannot detect: if you canceled a conversion after it CREATED a
+  new library, the next conversion's copy of that library holds the canceled
   attempt's output, and the table may list it as the original although the
   library did not exist before the wave. Check the library's history in ALM
   before putting a listed copy back. A new
